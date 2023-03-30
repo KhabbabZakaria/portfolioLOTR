@@ -1,0 +1,92 @@
+/* Apply common styles to the body */
+body {
+    background-image: url('/static/images/background.webp');
+    background-repeat: no-repeat;
+    background-size: cover;
+    color: #ddd;
+    font-family: 'Ringbearer', serif;
+    cursor: url('/static/images/elvensword.png'), 4 12, pointer;
+}
+
+/* Define the font face for the Ringbearer font */
+@font-face {
+    font-family: 'Ringbearer';
+    src: url('/static/fonts/ringbearer/ringbearer.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Style links */
+a {
+    color: #fff;
+}
+
+a:hover {
+    color: #eee;
+}
+
+/* Style the header */
+header {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+}
+
+/* Style the main content */
+main {
+    padding: 20px;
+}
+
+/* Position the Gandalf image on the right side of the screen */
+#gandalf {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 9999;
+}
+
+/* Apply a drop shadow to the Gandalf image */
+#gandalf img {
+    box-shadow: 0 0 0px rgba(0, 0, 0, 0.5);
+}
+
+
+#gollum {
+    position: fixed;
+    top: 150px;
+    right: 0;
+    z-index: 9999;
+}
+
+/* Apply a drop shadow to the Gandalf image */
+#gollum img {
+    box-shadow: 0 0 0px rgba(0, 0, 0, 0.5);
+}
+
+
+#hobbit {
+    position: fixed;
+    top: 100px;
+    right: -50px;
+    z-index: 9999;
+}
+
+/* Apply a drop shadow to the Gandalf image */
+#hobbit img {
+    box-shadow: 0 0 0px rgba(0, 0, 0, 0.5);
+}
+
+
+
+#men {
+    position: fixed;
+    top: 280px;
+    left:   980px;
+    z-index: 9999;
+}
+
+/* Apply a drop shadow to the Gandalf image */
+#men img {
+    box-shadow: 0 0 0px rgba(0, 0, 0, 0.5);
+}

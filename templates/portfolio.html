@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Zak's Portfolio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <style>
+      main {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        padding: 20px;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: rgba(0,0,0,0.5);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      .container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      #video-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+      }
+      footer {
+        width: 100%;
+        text-align: center;
+        padding: 20px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: #fff;
+      }
+      p, a {
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+      }
+      .transparent-box {
+        width: 50%;
+        background-color: rgba(255, 255, 255, 0.5);
+        padding: 20px;
+        margin-top: 50px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <audio id="bg-music" autoplay loop>
+        <source src="{{ url_for('static', filename='musics/2.mp3') }}" type="audio/mpeg">
+      </audio>
+      <video id="video-background" autoplay muted loop>
+        <source src="{{ url_for('static', filename='images/backgroundportfolio.mp4') }}" type="video/mp4">
+      </video>
+      <div id="gollum">
+        <img src="{{ url_for('static', filename='images/gollum.png') }}" alt="Gandalf">
+      </div>
+      <header style="padding-top: 50px;">
+        <h1>Here you can find everything about my works!</h1>
+      </header>
+      <div class="transparent-box">
+        <h2>Technische Hochschule Ingolstadt, Germany: Machine Learning and Software Engineer (October 2022 - Present)</h2>
+        <p>Tools Used: Python, PHP, Docker, Git, Bash Scripting, LSTMs, GANs, Flask, REST APIs, SQL, PostGreSQL, TypeScript, Grafana, Scrum.</p>
+        <p>Works on Natural Language Processing, Speech Recognition, other Machine Learning models.</p>
+        <p>Works on Dockerfiles, Docker Compose files, other DevOPs, website development, APIs, databases.</p>
+      </div>
+
+      <div class="transparent-box">
+        <h2>SandboxEC, United Kingdom: Machine Learning Engineer, Head of Engineering, CTO (January 2023 - Present)</h2>
+        <p>Working with startup SandboxEC on AI in Education with website development, OpenAI APIs, Databases, etc.</a>.</p>
+        <p>Currently under market study with running prototype with 3 leading universities in the UK</a>.</p>
+      </div>
+
+      <div class="transparent-box">
+        <h2>In collaboration with BlackRock, USA, and Pattern Recognition Lab, Erlangen, Germany: Master Thesis (December 2021 - June 2022)</h2>
+        <p>Guides: Mr. Stefano Pasquali (Head of Liquidity & Trading Research, BlackRock), Prof. Dr. Andreas Maier (University of Erlangen-Nuremberg)</a>.</p>
+        <p>Tools Used: Python, Reinforcement Learning, Deep Learning, Data Science and Wrangling, REST APIs, Git, Bash Scripting, GPUs and CUDA</a>.</p>
+        <p>Generated entire Financial Models for 22 different stocks (Large, Mid and Small Capitals) and 2 ETFs in different market conditions</a>.</p>
+        <p>Better performances than other models including famous statistical models for all market conditions for both Returns and Risks</a>.</p>
+        <p>Example: DRL Models generated $250,000 more than other models on a day for Apple in Oct 2021</a>.</p>
+      </div>
+
+      <div class="transparent-box">
+        <h2>Siemens Healthineers, Erlangen, Germany: Working Student (June 2021 - June 2022)</h2>
+        <p>Tools Used: Python, Pandas, Data Science, Core Programming</a>.</p>
+        <p> Program Algorithms for automatic analysis of dissimilarities and anomalies, and automatic comparisons from a large dataset</a>.</p>
+      </div>
+
+      <div class="transparent-box">
+        <h2>University of Erlangen-Nuremberg: Research Assistant (December 2019 - August 2021)</h2>
+        <p>Software Optimization with C++, Classifications with Convolutional Neural Networks, Optimization of scripts written by other developers</a>.</p>
+      </div>
+
+      <div class="transparent-box">
+        <h2>My other websites</h2>
+        <p>Check out <a href="https://www.linkedin.com/in/khabbabzakaria/" style="text-shadow: 0px 0px 10px gold;">LinkedIn</a> for my LinkedIn</a>.</p>
+        <p>Check out <a href="https://github.com/KhabbabZakaria/" style="text-shadow: 0px 0px 10px gold;">GitHub</a> for my GitHub</a>.</p>
+      </div>
+
+      <p>
+        <p>For more about my works, papers, skills, etc., visit <a href="/moreworks" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
+
+
+
+      <main>
+        <p>Go back to Home <a href="/" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
+        <p>Learn more about me <a href="/about" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
+      </main>
+    </div>
+    <footer>
+      <p>Copyright: Winter Zakwolf</p>
+      <p>Special thanks to LOTR. I am a big fan!</p>
+      <p>Thanks to https://www.youtube.com/watch?v=E6bVF4hM5iM for the background video.</p>
+    </footer>
+  </body>
+</html>

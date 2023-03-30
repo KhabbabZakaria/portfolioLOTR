@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>About Zak</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        min-height: 100vh;
+        position: relative;
+      }
+      #video-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+      }
+      footer {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        padding: 20px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: #fff;
+      }
+      p, a {
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+      }
+      .transparent-box {
+        width: 50%;
+        background-color: rgba(255, 255, 255, 0.5);
+        padding: 20px;
+        margin-top: 50px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+        <audio id="bg-music" autoplay loop>
+            <source src="{{ url_for('static', filename='musics/3.mp3') }}" type="audio/mpeg">
+          </audio>
+      <video id="video-background" autoplay muted loop>
+        <source src="{{ url_for('static', filename='images/backgroundabout.mp4') }}" type="video/mp4">
+      </video>
+      <div id="hobbit">
+        <img src="{{ url_for('static', filename='images/hobbit.png') }}" alt="Gandalf">
+      </div>
+      <header style="padding-top: 50px;">
+        <h1>Everything else about me!</h1>
+      </header>
+
+      <div class="transparent-box">
+        <h2>Technische Hochschule Ingolstadt, Germany: Machine Learning and Software Engineer (October 2022 - Present)</h2>
+        <p>Tools Used: Python, PHP, Docker, Git, Bash Scripting, LSTMs, GANs, Flask, REST APIs, SQL, PostGreSQL, TypeScript, Grafana, Scrum.</p>
+        <p>Works on Natural Language Processing, Speech Recognition, other Machine Learning models.</p>
+        <p>Works on Dockerfiles, Docker Compose files, other DevOPs, website development, APIs, databases.</p>
+      </div>
+
+      <main>
+        <p>Go back to Home <a href="/" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
+        <p>Check out my work <a href="/portfolio" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
+      </main>
+      <footer>
+        <p>copyright: Winter Zakwolf</p>
+        <p>Special thanks to LOTR. I am a big fan!</p>
+        <p>Thanks to https://www.youtube.com/watch?v=30b7_S0paCQ&t=4846s for the Background</p>
+      </footer>
+    </div>
+  </body>
+</html>
