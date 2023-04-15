@@ -19,4 +19,4 @@ def portfolio2():
     return render_template('portfolio2.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
