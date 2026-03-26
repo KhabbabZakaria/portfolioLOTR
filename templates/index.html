@@ -1,66 +1,602 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Khabbab Zakaria</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-      }
-      .container {
-        min-height: 100vh;
-        position: relative;
-      }
-      #video-background {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        z-index: -1;
-      }
-      footer {
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-        text-align: center;
-        padding: 20px;
-        background-color: rgba(0, 0, 0, 0.5);
-        color: #fff;
-      }
-      p, a {
-        text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-        <audio id="bg-music" autoplay loop>
-            <source src="{{ url_for('static', filename='musics/1.mp3') }}" type="audio/mpeg">
-          </audio>
-      <video id="video-background" autoplay muted loop>
-        <source src="{{ url_for('static', filename='images/backgroundindex.mp4') }}" type="video/mp4">
-      </video>
-      <div id="gandalf">
-        <img src="{{ url_for('static', filename='images/gandalf.png') }}" alt="Gandalf">
-      </div>
-      <header>
-        <h1>Welcome to my world!</h1>
-        <h3>Here you can find everything about me, hope you have a good time!</h3>
-        <h5>I am having a great time, knowing that you are remembering me!</h5>
-      </header>
-      <main>
-        <p>Check out my work <a href="/portfolio" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
-        <p>Learn more about me <a href="/about" style="text-shadow: 0px 0px 10px gold;">here</a>.</p>
-      </main>
-      <footer>
-        <p>copyright: Winter Zakwolf</p>
-        <p>Special thanks to LOTR. I am a big fan!</p>
-        <p>Thanks to https://www.youtube.com/watch?v=yQ0JtqTo6ao for the background</p>
-      </footer>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khabbab Zakaria — ML Engineer & Software Developer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0a0e1a;--bg2:#0f1526;--bg3:#141c32;
+      --cyan:#00d4ff;--purple:#7b2fff;
+      --text:#e2e8f0;--muted:#94a3b8;
+      --border:rgba(255,255,255,0.08);--card:rgba(255,255,255,0.04)
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(0,212,255,0.3)}
+
+    /* NAV */
+    nav{position:fixed;top:0;width:100%;z-index:1000;padding:1rem 3rem;display:flex;justify-content:space-between;align-items:center;background:rgba(10,14,26,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);transition:background 0.3s}
+    .nav-logo{font-size:0.975rem;font-weight:700;letter-spacing:-0.01em;color:var(--text)}
+    .nav-logo span{background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-links{display:flex;gap:1.75rem;list-style:none;align-items:center}
+    .nav-links a{color:var(--muted);text-decoration:none;font-size:0.85rem;font-weight:500;transition:color 0.2s}
+    .nav-links a:hover{color:var(--cyan)}
+    .nav-classic-btn{background:transparent;border:1px solid var(--border);color:var(--muted) !important;padding:0.35rem 0.9rem;border-radius:6px;font-size:0.78rem !important;letter-spacing:0.04em;text-transform:uppercase;transition:all 0.2s !important}
+    .nav-classic-btn:hover{border-color:rgba(0,212,255,0.35) !important;color:var(--cyan) !important;background:rgba(0,212,255,0.04) !important}
+
+    /* HERO */
+    #hero{min-height:100vh;display:flex;align-items:center;padding:8rem 6rem 4rem;position:relative;overflow:hidden}
+    .hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(0,212,255,0.06) 0%,transparent 60%),radial-gradient(ellipse 50% 50% at 80% 50%,rgba(123,47,255,0.08) 0%,transparent 60%)}
+    .hero-bg::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%)}
+    .hero-content{position:relative;z-index:1;max-width:750px}
+    .hero-tag{font-family:'Inter',sans-serif;font-size:0.78rem;color:var(--cyan);letter-spacing:0.18em;text-transform:uppercase;font-weight:500;margin-bottom:1.5rem;opacity:0;animation:fadeUp 0.8s 0.2s forwards}
+    .hero-name{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;line-height:1.1;letter-spacing:-0.03em;margin-bottom:1rem;opacity:0;animation:fadeUp 0.8s 0.35s forwards}
+    .hero-name span{background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero-title{font-size:clamp(1rem,2.5vw,1.35rem);color:var(--muted);font-weight:400;margin-bottom:1.5rem;opacity:0;animation:fadeUp 0.8s 0.5s forwards}
+    .hero-summary{font-size:0.95rem;color:var(--muted);max-width:600px;margin-bottom:2.5rem;line-height:1.8;opacity:0;animation:fadeUp 0.8s 0.65s forwards}
+    .hero-cta{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:3rem;opacity:0;animation:fadeUp 0.8s 0.8s forwards}
+    .btn-primary{background:linear-gradient(135deg,var(--cyan),#0099cc);color:#0a0e1a;padding:0.75rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;transition:all 0.2s}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,212,255,0.3)}
+    .btn-secondary{border:1px solid var(--border);color:var(--text);padding:0.75rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:500;font-size:0.9rem;transition:all 0.2s;background:var(--card)}
+    .btn-secondary:hover{border-color:var(--cyan);color:var(--cyan);transform:translateY(-2px)}
+    .hero-socials{display:flex;gap:1.5rem;opacity:0;animation:fadeUp 0.8s 0.95s forwards;flex-wrap:wrap}
+    .hero-socials a{color:var(--muted);text-decoration:none;font-size:0.85rem;font-family:'JetBrains Mono',monospace;transition:color 0.2s;display:flex;align-items:center;gap:0.4rem}
+    .hero-socials a:hover{color:var(--cyan)}
+    .hero-socials a::before{content:'';width:20px;height:1px;background:currentColor;display:inline-block}
+
+    /* SECTIONS */
+    section{padding:5rem 6rem;max-width:1200px;margin:0 auto}
+    .section-header{margin-bottom:3rem}
+    .section-tag{font-family:'Inter',sans-serif;font-size:0.7rem;color:var(--cyan);letter-spacing:0.2em;text-transform:uppercase;font-weight:600;margin-bottom:0.75rem}
+    .section-title{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700;letter-spacing:-0.02em}
+    .section-divider{width:50px;height:3px;background:linear-gradient(90deg,var(--cyan),var(--purple));margin-top:1rem;border-radius:2px}
+    .section-sep{border:none;border-top:1px solid var(--border);max-width:1200px;margin:0 auto}
+
+    /* ABOUT */
+    .about-grid{display:grid;grid-template-columns:1fr 320px;gap:4rem;align-items:start}
+    .about-text p{color:var(--muted);line-height:1.8;margin-bottom:1.2rem;font-size:0.95rem}
+    .about-facts{margin-top:2rem;display:flex;flex-direction:column;gap:0.65rem}
+    .about-fact{display:flex;align-items:flex-start;gap:0.6rem;font-size:0.875rem;color:var(--muted)}
+    .about-fact-icon{color:var(--cyan);flex-shrink:0;margin-top:0.05rem}
+    .about-photo-wrap{display:flex;flex-direction:column;align-items:center;gap:1.5rem}
+    .about-photo{width:260px;height:260px;border-radius:14px;overflow:hidden;border:1px solid var(--border);position:relative}
+    .about-photo img{width:100%;height:100%;object-fit:cover;filter:grayscale(10%)}
+
+    /* EDUCATION */
+    .edu-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+    .edu-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.75rem;opacity:0;transform:translateY(20px);transition:all 0.5s ease}
+    .edu-card.visible{opacity:1;transform:translateY(0)}
+    .edu-degree{font-size:1rem;font-weight:600;margin-bottom:0.3rem}
+    .edu-school{font-size:0.875rem;color:var(--cyan);margin-bottom:0.4rem}
+    .edu-period{font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:var(--muted);margin-bottom:0.75rem}
+    .edu-desc{font-size:0.82rem;color:var(--muted);line-height:1.7}
+
+    /* TIMELINE */
+    .timeline{position:relative;padding-left:2rem}
+    .timeline::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:1px;background:linear-gradient(to bottom,var(--cyan),var(--purple),transparent)}
+    .timeline-item{position:relative;padding-bottom:2.5rem;padding-left:1.5rem;opacity:0;transform:translateX(-20px);transition:all 0.55s ease}
+    .timeline-item.visible{opacity:1;transform:translateX(0)}
+    .timeline-dot{position:absolute;left:-2rem;top:6px;width:10px;height:10px;border-radius:50%;background:var(--cyan);border:2px solid var(--bg);box-shadow:0 0 10px rgba(0,212,255,0.5)}
+    .timeline-period{font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:var(--cyan);letter-spacing:0.05em;margin-bottom:0.3rem}
+    .timeline-role{font-size:1rem;font-weight:600;margin-bottom:0.15rem}
+    .timeline-company{font-size:0.85rem;color:var(--muted);margin-bottom:0.65rem}
+    .timeline-bullets{list-style:none;display:flex;flex-direction:column;gap:0.3rem}
+    .timeline-bullets li{font-size:0.85rem;color:var(--muted);padding-left:1rem;position:relative;line-height:1.6}
+    .timeline-bullets li::before{content:'▸';position:absolute;left:0;color:var(--cyan);font-size:0.68rem;top:0.12rem}
+
+    /* PROJECTS */
+    .projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem}
+    .project-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.6rem;transition:all 0.3s;opacity:0;transform:translateY(20px);position:relative;overflow:hidden}
+    .project-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--purple));transform:scaleX(0);transition:transform 0.3s}
+    .project-card:hover{border-color:rgba(0,212,255,0.2);transform:translateY(-4px);background:rgba(255,255,255,0.06)}
+    .project-card:hover::before{transform:scaleX(1)}
+    .project-card.visible{opacity:1;transform:translateY(0)}
+    .project-period{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--cyan);letter-spacing:0.08em;margin-bottom:0.5rem}
+    .project-title{font-size:1rem;font-weight:600;margin-bottom:0.65rem;line-height:1.4}
+    .project-desc{font-size:0.83rem;color:var(--muted);line-height:1.7;margin-bottom:1rem}
+    .project-tags{display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:0.85rem}
+    .tag{font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--cyan);background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);padding:0.18rem 0.55rem;border-radius:4px}
+    .project-link{font-size:0.8rem;color:var(--muted);text-decoration:none;transition:color 0.2s}
+    .project-link:hover{color:var(--cyan)}
+    .project-bullets{list-style:none;display:flex;flex-direction:column;gap:0.3rem;margin-bottom:1rem}
+    .project-bullets li{font-size:0.82rem;color:var(--muted);padding-left:1rem;position:relative;line-height:1.65}
+    .project-bullets li::before{content:'▸';position:absolute;left:0;color:var(--cyan);font-size:0.68rem;top:0.13rem}
+
+    /* PUBLICATIONS */
+    .pub-list{display:flex;flex-direction:column;gap:0.85rem}
+    .pub-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.4rem;display:flex;align-items:flex-start;gap:1rem;opacity:0;transform:translateY(15px);transition:all 0.5s ease}
+    .pub-item.visible{opacity:1;transform:translateY(0)}
+    .pub-item:hover{border-color:rgba(0,212,255,0.2)}
+    .pub-year{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--cyan);white-space:nowrap;margin-top:0.15rem;min-width:45px}
+    .pub-text{font-size:0.855rem;color:var(--muted);line-height:1.65}
+    .pub-text a{color:var(--cyan);text-decoration:none}
+    .pub-text a:hover{text-decoration:underline}
+
+    /* SKILLS */
+    .skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem}
+    .skill-category{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;opacity:0;transform:translateY(15px);transition:all 0.5s ease}
+    .skill-category.visible{opacity:1;transform:translateY(0)}
+    .skill-cat-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.18em;color:var(--cyan);margin-bottom:0.9rem;font-family:'Inter',sans-serif}
+    .skill-tags{display:flex;flex-wrap:wrap;gap:0.35rem}
+    .skill-tag{font-size:0.77rem;color:var(--muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);padding:0.22rem 0.6rem;border-radius:6px}
+
+    /* ACHIEVEMENTS */
+    .ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.1rem}
+    .ach-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.4rem;opacity:0;transform:translateY(15px);transition:all 0.5s ease}
+    .ach-card.visible{opacity:1;transform:translateY(0)}
+    .ach-card:hover{border-color:rgba(0,212,255,0.2)}
+    .ach-title{font-size:0.9rem;font-weight:600;margin-bottom:0.25rem}
+    .ach-year{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--cyan);margin-bottom:0.45rem}
+    .ach-desc{font-size:0.81rem;color:var(--muted);line-height:1.6}
+
+    /* CONTACT */
+    #contact{text-align:center}
+    #contact .section-divider{margin:1rem auto}
+    .contact-tagline{font-size:0.92rem;color:var(--muted);max-width:480px;margin:0 auto 2.5rem;line-height:1.8}
+    .contact-links{display:flex;justify-content:center;flex-wrap:wrap;gap:0.85rem;margin-bottom:2.5rem}
+    .contact-link{display:flex;align-items:center;gap:0.5rem;background:var(--card);border:1px solid var(--border);color:var(--muted);text-decoration:none;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.85rem;transition:all 0.2s}
+    .contact-link:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.05)}
+
+    /* CLASSIC PORTAL */
+    .classic-portal{margin-top:2rem;text-align:center}
+    .classic-portal p{font-size:0.82rem;color:var(--muted);margin-bottom:0.85rem;letter-spacing:0.01em}
+    .btn-classic{display:inline-flex;align-items:center;gap:0.45rem;background:transparent;border:1px solid var(--border);color:var(--muted);text-decoration:none;padding:0.55rem 1.3rem;border-radius:6px;font-size:0.8rem;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;transition:all 0.2s}
+    .btn-classic:hover{border-color:rgba(0,212,255,0.3);color:var(--cyan);background:rgba(0,212,255,0.04);transform:translateY(-2px)}
+
+    /* FOOTER */
+    footer{border-top:1px solid var(--border);padding:1.75rem 6rem;display:flex;justify-content:space-between;align-items:center}
+    .footer-text{font-size:0.78rem;color:var(--muted)}
+    .footer-code{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:rgba(255,255,255,0.18)}
+
+    /* ANIMATIONS */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+    /* RESPONSIVE */
+    @media(max-width:900px){
+      #hero{padding:7rem 1.5rem 4rem}
+      section{padding:4rem 1.5rem}
+      .about-grid{grid-template-columns:1fr}
+      .edu-grid{grid-template-columns:1fr}
+      .nav-links{display:none}
+      footer{padding:1.5rem;flex-direction:column;gap:0.5rem;text-align:center}
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Khabbab <span>Zakaria</span></div>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#experience">Experience</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="#publications">Publications</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="/classic" class="nav-classic-btn">Lord of the Rings</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-tag">Machine Learning Engineer &amp; Software Developer</div>
+    <h1 class="hero-name">Khabbab<br><span>Zakaria</span></h1>
+    <p class="hero-title">ML Researcher &nbsp;·&nbsp; Reinforcement Learning &nbsp;·&nbsp; Agentic AI &nbsp;·&nbsp; LLMs</p>
+    <p class="hero-summary">
+      Machine learning researcher with a strong background in software development.
+      Specializing in deep RL, large language models, and multi-agent systems -
+      building at the intersection of AI research and production engineering.
+    </p>
+    <div class="hero-cta">
+      <a href="#experience" class="btn-primary">View Experience</a>
+      <a href="#contact" class="btn-secondary">Get In Touch</a>
     </div>
-  </body>
+    <div class="hero-socials">
+      <a href="https://github.com/KhabbabZakaria" target="_blank">GitHub</a>
+      <a href="https://www.linkedin.com/in/khabbabzakaria/" target="_blank">LinkedIn</a>
+      <a href="mailto:khabbabzakaria7@gmail.com">Email</a>
+      <a href="http://zakawolf.pythonanywhere.com" target="_blank">Live Portfolio</a>
+    </div>
+  </div>
+</div>
+
+<hr class="section-sep">
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="section-header">
+    <div class="section-tag">About</div>
+    <h2 class="section-title">Profile</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="about-grid">
+    <div>
+      <div class="about-text">
+        <p>I'm a Machine Learning Engineer and Software Developer with an MSc in Artificial Intelligence from the University of Erlangen-Nuremberg. Currently I am working at E.Solutions GmBH as Integration Engineer. My work spans deep reinforcement learning, large language models, NLP, and agentic AI systems.</p>
+        <p>I've worked with organizations including BlackRock, Siemens Healthineers, and various research institutions - building everything from Deep RL trading agents to LLM-powered educational platforms.</p>
+        <p>Beyond research, I'm a published fantasy novelist (<em>Starshine</em>), a goalkeeper, a pianist, and an avid traveler across 15+ countries in Europe and Asia.</p>
+      </div>
+      <div class="about-facts">
+        <div class="about-fact"><span class="about-fact-icon">▸</span><span>Based in Munich, Germany</span></div>
+        <div class="about-fact"><span class="about-fact-icon">▸</span><span>MSc Artificial Intelligence — University of Erlangen-Nuremberg (Grade: 1.9/4)</span></div>
+        <div class="about-fact"><span class="about-fact-icon">▸</span><span>Research: Reinforcement Learning · LLMs · Multi-Agent Systems · Agentic AI</span></div>
+        <div class="about-fact"><span class="about-fact-icon">▸</span><span>Languages: English · Bengali · Hindi · Urdu · German</span></div>
+      </div>
+    </div>
+    <div class="about-photo-wrap">
+      <div class="about-photo">
+        <img src="{{ url_for('static', filename='images/zak.png') }}" alt="Khabbab Zakaria">
+      </div>
+      <a href="mailto:khabbabzakaria7@gmail.com" class="btn-primary" style="font-size:0.82rem;padding:0.55rem 1.25rem;">khabbabzakaria7@gmail.com</a>
+    </div>
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- EDUCATION -->
+<section id="education">
+  <div class="section-header">
+    <div class="section-tag">Education</div>
+    <h2 class="section-title">Academic Background</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="edu-grid">
+    <div class="edu-card">
+      <div class="edu-degree">Master of Science — Artificial Intelligence</div>
+      <div class="edu-school">University of Erlangen-Nuremberg, Germany</div>
+      <div class="edu-period">Oct 2019 – Sep 2022 &nbsp;·&nbsp; Grade: 1.9/4 (1 highest)</div>
+      <div class="edu-desc">
+        Deep Learning · Pattern Recognition · Machine Learning for Physicists · Computer Vision · Image Processing in Optical Nanoscopy<br><br>
+        <strong style="color:var(--text)">Thesis:</strong> Reinforcement Learning in Optimal Order Execution — Grade: 1
+      </div>
+    </div>
+    <div class="edu-card">
+      <div class="edu-degree">Bachelor of Engineering — Power Engineering</div>
+      <div class="edu-school">Jadavpur University, Kolkata, India</div>
+      <div class="edu-period">Aug 2016 – May 2018 &nbsp;·&nbsp; Grade: 8.3/10</div>
+      <div class="edu-desc">Mathematics · C/C++ Programming · MATLAB</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- EXPERIENCE -->
+<section id="experience">
+  <div class="section-header">
+    <div class="section-tag">Experience</div>
+    <h2 class="section-title">Professional Experience</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="timeline">
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Apr 2024 — Present</div>
+      <div class="timeline-role">Software Developer &amp; Integration Engineer</div>
+      <div class="timeline-company">E.Solutions · Ingolstadt, Germany</div>
+      <ul class="timeline-bullets">
+        <li>Built automated data-processing and integration pipelines to support reproducible software experimentation in large-scale systems.</li>
+        <li>Developed backend services enabling controlled evaluation environments for research prototypes.</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Apr 2023 — Present</div>
+      <div class="timeline-role">Head of Artificial Intelligence</div>
+      <div class="timeline-company">ThinklabsAI · Remote, UK</div>
+      <ul class="timeline-bullets">
+        <li>Led applied research on LLM-powered educational assistants deployed across UK universities.</li>
+        <li>Designed NLU pipelines and implemented domain-adapted LLM evaluations.</li>
+        <li>Fine-tuned and benchmarked foundation models for instruction following and academic tasks.</li>
+        <li>Transitioned research prototypes into deployable cloud systems for real-world testing.</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Apr 2023 — Aug 2023</div>
+      <div class="timeline-role">Research Assistant (Contingent Worker)</div>
+      <div class="timeline-company">BlackRock · Remote, USA</div>
+      <ul class="timeline-bullets">
+        <li>Designed statistical and ML-based methods for imputing sparse high-dimensional financial datasets.</li>
+        <li>Contributed to internal research tooling and data-processing libraries used across the firm.</li>
+        <li>Collaborated with research scientists on model evaluation, reproducibility, and experimental analysis.</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Oct 2022 — Apr 2023</div>
+      <div class="timeline-role">Machine Learning Engineer</div>
+      <div class="timeline-company">Technische Hochschule Ingolstadt · Germany</div>
+      <ul class="timeline-bullets">
+        <li>Conducted research on ML, NLP, ASR, and LLM-based models with PyTorch and TensorFlow.</li>
+        <li>Developed large-scale behavioural datasets (~10k monthly events) for modelling student interactions.</li>
+        <li>Designed algorithms for adaptive learning, student modelling, and AI-assisted educational feedback.</li>
+        <li>Integrated experimental AI systems into Moodle-based platforms used by ~30,000 students.</li>
+        <li>Collaborated with academic researchers using reproducible ML workflows and version-controlled experimentation.</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Dec 2021 — Jun 2022</div>
+      <div class="timeline-role">Internship &amp; Master's Thesis — Deep Reinforcement Learning</div>
+      <div class="timeline-company">BlackRock · Remote, USA</div>
+      <ul class="timeline-bullets">
+        <li>Developed Deep RL agents for optimal order execution under risk constraints using PyTorch.</li>
+        <li>Benchmarked RL models against classical strategies using historical market data.</li>
+        <li>Investigated reward shaping, policy stability, and robustness under market uncertainty.</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-period">Jun 2021 — Jun 2022</div>
+      <div class="timeline-role">Data Scientist (Part-time)</div>
+      <div class="timeline-company">Siemens Healthineers · Erlangen, Germany</div>
+      <ul class="timeline-bullets">
+        <li>Developed anomaly detection and exploratory data-analysis modules for internal R&amp;D workflows.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- PROJECTS -->
+<section id="projects">
+  <div class="section-header">
+    <div class="section-tag">Projects</div>
+    <h2 class="section-title">Research &amp; Projects</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="projects-grid">
+
+    <div class="project-card">
+      <div class="project-period">Jan 2026 — Present</div>
+      <div class="project-title">Deep RL Agent for Strategic Card Game</div>
+      <ul class="project-bullets">
+        <li>Designed and trained an Actor-Critic agent with policy gradient methods to master a two-player zero-sum card game through pure self-play, achieving competitive gameplay without human demonstrations.</li>
+        <li>Integrated LLM-based intrinsic reward shaping to accelerate exploration and strategy learning, comparing performance against pure deep learning approaches in a controlled experimental setup.</li>
+        <li>Applied advanced training stabilization techniques including advantage normalization, gradient clipping, and Bernoulli distributions for discrete action modeling to ensure convergence in adversarial settings.</li>
+      </ul>
+      <div class="project-tags">
+        <span class="tag">Actor-Critic</span><span class="tag">Self-Play</span><span class="tag">PyTorch</span><span class="tag">LLM</span><span class="tag">Policy Gradient</span>
+      </div>
+      <a href="https://github.com/KhabbabZakaria" class="project-link" target="_blank">→ GitHub</a>
+    </div>
+
+    <div class="project-card">
+      <div class="project-period">Jun 2025 — Present</div>
+      <div class="project-title">CV Generation with Generative AI</div>
+      <ul class="project-bullets">
+        <li>Developing an LLM-based system for structured document generation using user embeddings and template learning.</li>
+        <li>Research emphasis on controllable text generation, evaluation metrics, and model reliability.</li>
+      </ul>
+      <div class="project-tags">
+        <span class="tag">LLMs</span><span class="tag">Document Modelling</span><span class="tag">NLP</span><span class="tag">Generative AI</span>
+      </div>
+    </div>
+
+    <div class="project-card">
+      <div class="project-period">Jul 2025 — Aug 2025</div>
+      <div class="project-title">Finance AI Agent with Autonomous Tool Selection</div>
+      <ul class="project-bullets">
+        <li>Built an agentic AI system using LangChain and GPT-4 for autonomous intent classification and tool selection, routing user queries to appropriate financial analysis functions without hardcoded rules.</li>
+        <li>Integrated multi-source data pipelines (NewsAPI, Reddit, Finnhub, Yahoo Finance) with LLM-based reasoning to provide contextual answers on portfolio optimization, stock trends, and market news.</li>
+        <li>Designed dynamic parameter extraction with weight normalization and ticker resolution, enabling complex queries like portfolio ranking and buy recommendations through a natural language interface.</li>
+      </ul>
+      <div class="project-tags">
+        <span class="tag">LangChain</span><span class="tag">GPT-4</span><span class="tag">Flask</span><span class="tag">Agentic AI</span><span class="tag">FinTech</span>
+      </div>
+      <a href="https://github.com/KhabbabZakaria" class="project-link" target="_blank">→ GitHub</a>
+    </div>
+
+    <div class="project-card">
+      <div class="project-period">May 2021 — Aug 2021</div>
+      <div class="project-title">CNN-Based Writer Identification in Historical Scripts</div>
+      <div class="timeline-company" style="font-size:0.8rem;margin-bottom:0.65rem">University of Erlangen-Nuremberg · Erlangen, Germany</div>
+      <ul class="project-bullets">
+        <li>Implemented CNN-based models for writer identification in historical scripts.</li>
+        <li>Conducted experiments on preprocessing, feature extraction, and generalization for optical character recognition research.</li>
+      </ul>
+      <div class="project-tags">
+        <span class="tag">CNN</span><span class="tag">Deep Learning</span><span class="tag">Computer Vision</span><span class="tag">PyTorch</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- PUBLICATIONS -->
+<section id="publications">
+  <div class="section-header">
+    <div class="section-tag">Publications</div>
+    <h2 class="section-title">Conferences &amp; Papers</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="pub-list">
+    <div class="pub-item">
+      <div class="pub-year">2023</div>
+      <div class="pub-text">Hartung, Zakaria K., et al. <em>Measuring sentiment bias in machine translation.</em> Text, Speech, and Dialogue: 26th International Conference, TSD 2023. <a href="https://link.springer.com/chapter/10.1007/978-3-031-40498-6_8" target="_blank">[Link]</a></div>
+    </div>
+    <div class="pub-item">
+      <div class="pub-year">2023</div>
+      <div class="pub-text">Frohnmaier M., Zakaria K., et al. <em>Spoken Language Understanding meets Large Language Models at Munich Airport.</em> Bavarian Artificial Intelligence Conference, Ingolstadt.</div>
+    </div>
+    <div class="pub-item">
+      <div class="pub-year">2023</div>
+      <div class="pub-text">Ranzenberger T., Bocklet T., Zakaria K., et al. <em>The Hochschul-Assistenz-System HAnS.</em> Elektronische Sprachsignalverarbeitung 2023, TUDpress Dresden. <a href="/static/pdf/poster.pdf" download>[Download Poster]</a></div>
+    </div>
+    <div class="pub-item">
+      <div class="pub-year">2017</div>
+      <div class="pub-text">Das P.K., Zakaria K., Ganguly R., et al. <em>Measurement Of Surface Tension And Contact Angle Of Different Nanofluids: An Experimental Study.</em> 24th National and 2nd International ISHMT-ASTFE Heat and Mass Transfer Conference (IHMTC-2017).</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- SKILLS -->
+<section id="skills">
+  <div class="section-header">
+    <div class="section-tag">Skills</div>
+    <h2 class="section-title">Technical Skills</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="skills-grid">
+    <div class="skill-category">
+      <div class="skill-cat-title">Programming</div>
+      <div class="skill-tags">
+        <span class="skill-tag">Python</span><span class="skill-tag">SQL</span><span class="skill-tag">C++</span><span class="skill-tag">Bash</span><span class="skill-tag">MATLAB</span><span class="skill-tag">R</span><span class="skill-tag">JavaScript</span>
+      </div>
+    </div>
+    <div class="skill-category">
+      <div class="skill-cat-title">ML / AI Frameworks</div>
+      <div class="skill-tags">
+        <span class="skill-tag">PyTorch</span><span class="skill-tag">TensorFlow</span><span class="skill-tag">Keras</span><span class="skill-tag">scikit-learn</span><span class="skill-tag">LangChain</span>
+      </div>
+    </div>
+    <div class="skill-category">
+      <div class="skill-cat-title">Research Areas</div>
+      <div class="skill-tags">
+        <span class="skill-tag">Reinforcement Learning</span><span class="skill-tag">NLP</span><span class="skill-tag">LLMs</span><span class="skill-tag">ASR</span><span class="skill-tag">Generative AI</span><span class="skill-tag">Computer Vision</span><span class="skill-tag">Agentic AI</span>
+      </div>
+    </div>
+    <div class="skill-category">
+      <div class="skill-cat-title">Platforms &amp; Tools</div>
+      <div class="skill-tags">
+        <span class="skill-tag">Linux</span><span class="skill-tag">Docker</span><span class="skill-tag">AWS</span><span class="skill-tag">Azure</span><span class="skill-tag">Git</span><span class="skill-tag">Jupyter</span><span class="skill-tag">GPU / CUDA</span>
+      </div>
+    </div>
+    <div class="skill-category">
+      <div class="skill-cat-title">Languages</div>
+      <div class="skill-tags">
+        <span class="skill-tag">English (Fluent)</span><span class="skill-tag">Bengali (Native)</span><span class="skill-tag">Hindi (Fluent)</span><span class="skill-tag">Urdu (Intermediate)</span><span class="skill-tag">German (Beginner)</span>
+      </div>
+    </div>
+    <div class="skill-category">
+      <div class="skill-cat-title">Research Tools</div>
+      <div class="skill-tags">
+        <span class="skill-tag">Experiment Tracking</span><span class="skill-tag">Data Pipelines</span><span class="skill-tag">Reproducible ML</span><span class="skill-tag">Evaluation Metrics</span><span class="skill-tag">Statistics</span><span class="skill-tag">Optimization</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- ACHIEVEMENTS -->
+<section id="achievements">
+  <div class="section-header">
+    <div class="section-tag">Achievements</div>
+    <h2 class="section-title">Achievements &amp; Certifications</h2>
+    <div class="section-divider"></div>
+  </div>
+  <div class="ach-grid">
+    <div class="ach-card">
+      <div class="ach-title">Google Foobar Challenge</div>
+      <div class="ach-year">2022</div>
+      <div class="ach-desc">Completed all levels of the invitation-only Google algorithmic challenge.</div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">Microsoft Grant for Startups</div>
+      <div class="ach-year">2023</div>
+      <div class="ach-desc">Received Azure and OpenAI credits for AI research and prototyping.</div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">AWS Startup Grant</div>
+      <div class="ach-year">2023</div>
+      <div class="ach-desc">Awarded cloud research credits for ML experimentation.</div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">AlgoExpert Certification</div>
+      <div class="ach-year">2022</div>
+      <div class="ach-desc">Data Structures &amp; Algorithms certification from ex-Google/Facebook engineers. <a href="/static/pdf/Algoexpert.pdf" download style="color:var(--cyan)">[PDF]</a></div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">HackerRank Gold Badge</div>
+      <div class="ach-year">2022</div>
+      <div class="ach-desc">Gold Badge in Problem Solving; certifications in Python, REST APIs, and Data Structures. <a href="/static/pdf/HackerRank.pdf" download style="color:var(--cyan)">[PDF]</a></div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">KONVENS 2023 Organizing Committee</div>
+      <div class="ach-year">2023</div>
+      <div class="ach-desc">Organizing committee member for the NLP &amp; ML conference.</div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">MSc Teaching Assistant</div>
+      <div class="ach-year">Winter 2023</div>
+      <div class="ach-desc">Teaching and supervision of introductory ML projects for MSc students at THI.</div>
+    </div>
+    <div class="ach-card">
+      <div class="ach-title">Published Fantasy Novelist</div>
+      <div class="ach-year">2020</div>
+      <div class="ach-desc">Author of <em>Starshine</em> (White Falcon Publishing). Goalkeeper — FAU Bavarian Elite Cup 2022–2023.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-sep">
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="section-header">
+    <div class="section-tag" style="text-align:center">Contact</div>
+    <h2 class="section-title" style="text-align:center">Get In Touch</h2>
+    <div class="section-divider" style="margin:1rem auto"></div>
+  </div>
+  <p class="contact-tagline">Open to research collaborations, ML engineering roles, and interesting conversations about AI, reinforcement learning, or agentic systems.</p>
+  <div class="contact-links">
+    <a href="mailto:khabbabzakaria7@gmail.com" class="contact-link">khabbabzakaria7@gmail.com</a>
+    <a href="https://www.linkedin.com/in/khabbabzakaria/" class="contact-link" target="_blank">LinkedIn</a>
+    <a href="https://github.com/KhabbabZakaria" class="contact-link" target="_blank">GitHub</a>
+    <a href="http://zakawolf.pythonanywhere.com" class="contact-link" target="_blank">zakawolf.pythonanywhere.com</a>
+  </div>
+  <div class="classic-portal">
+    <p>Looking for the original LOTR-themed version of this portfolio?</p>
+    <a href="/classic" class="btn-classic">View Classic Portfolio</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-text">© 2026 Khabbab Zakaria</div>
+  <div class="footer-code">Built with Flask · Python · HTML/CSS</div>
+</footer>
+
+<script>
+  // Scroll-in animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll(
+    '.timeline-item, .project-card, .pub-item, .skill-category, .ach-card, .edu-card'
+  ).forEach(el => observer.observe(el));
+
+  // Nav transparency on scroll
+  window.addEventListener('scroll', () => {
+    document.querySelector('nav').style.background =
+      window.scrollY > 50 ? 'rgba(10,14,26,0.97)' : 'rgba(10,14,26,0.85)';
+  });
+</script>
+
+</body>
 </html>
