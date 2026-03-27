@@ -510,6 +510,7 @@ const STATUS_LABELS = {
   warming:  ['WARMING UP','running'],
   waiting:  ['WAITING FOR OPEN','running'],
   live:     ['LIVE','running'],
+  eod:      ['END OF DAY','done'],
   done:     ['MARKET CLOSED','done'],
   error:    ['ERROR','error'],
 };
@@ -733,10 +734,78 @@ function setStatus(txt, mode) {
   el('statusPill').className   = 'pill '+(mode||'');
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
-checkAlpaca();
-setInterval(checkAlpaca, 30000);
-addStockCard(); // start with one empty card at 100%
+// ── Init — restore running state if trader is already active ─────────────────
+async function init() {
+  checkAlpaca();
+  setInterval(checkAlpaca, 30000);
+
+  let d;
+  try {
+    const r = await fetch('/autotrader/api/state');
+    d = await r.json();
+  } catch(e) {
+    addStockCard();
+    return;
+  }
+
+  // Nothing running — show blank config UI
+  if (!d.running && d.status === 'idle') {
+    addStockCard();
+    return;
+  }
+
+  const lanes = d.portfolio || [];
+  if (!lanes.length) {
+    addStockCard();
+    return;
+  }
+
+  // Reconstruct frontend portfolio from backend state
+  const totalCap = d.total_capital || 10000;
+  portfolio = lanes.map((lane) => ({
+    id:         ++laneIdCtr,
+    ticker:     lane.ticker,
+    strategy:   lane.strategy || 'rsi',
+    vwapFilter: true,
+    weight:     Math.round(lane.capital / totalCap * 100),
+    params:     { rsiP:14, rsiOs:30, rsiOb:70, maF:9, maSl:21, bbP:20, bbS:2.0 },
+  }));
+
+  // Fix rounding so weights always sum to 100
+  const wSum = portfolio.reduce((s,l) => s + l.weight, 0);
+  if (wSum !== 100 && portfolio.length) portfolio[0].weight += (100 - wSum);
+
+  // Restore capital input
+  if (el('capital')) el('capital').value = totalCap;
+
+  // Switch UI into running mode
+  simRunning = true;
+  el('startBtn').className  = 'start-btn stop';
+  el('startBtn').textContent = '■ STOP';
+  el('emptyState').style.display   = 'none';
+  el('liveResults').style.display  = 'block';
+  el('perStockBar').style.display  = 'flex';
+
+  renderCards();
+
+  const [label, mode] = STATUS_LABELS[d.status] || ['RUNNING', 'running'];
+  setStatus(label, mode);
+
+  // Populate charts and all panels with current data
+  initCharts(lanes.map(l => l.ticker));
+  updateStats(d);
+  updateLog(d.log || []);
+  updateTrades(d);
+  updatePerStock(d.portfolio || []);
+  updateAlpacaStats(d.alpaca_orders || []);
+  updateLiveInfo(d);
+  updateCharts(d.portfolio || []);
+
+  // Resume live polling
+  pollTimer = setInterval(pollState, 3000);
+}
+
+init();
 </script>
 </body>
 </html>
