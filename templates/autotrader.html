@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutoTrader — Paper Trading</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080c;--s1:#0e1018;--s2:#141720;--s3:#1c2030;
+  --border:#252b3d;
+  --accent:#00e5ff;--accent-dim:#00e5ff18;
+  --green:#00e676;--green-dim:#00e67618;
+  --red:#ff4757;--red-dim:#ff475718;
+  --orange:#ff9800;--orange-dim:#ff980018;
+  --text:#e8eaf0;--muted:#5a6380;
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:56px;border-bottom:1px solid var(--border);background:var(--s1);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);position:relative}
+.logo-mark::before{content:'';position:absolute;inset:-4px;border:1px solid var(--accent);opacity:.2;transform:rotate(45deg)}
+.logo-text{font-size:16px;font-weight:800}
+.logo-text span{color:var(--accent)}
+.logo-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid var(--orange);color:var(--orange);margin-left:8px}
+.header-right{display:flex;align-items:center;gap:14px}
+.pill{display:flex;align-items:center;gap:7px;padding:4px 12px;border:1px solid var(--border);border-radius:20px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.pill.running .pill-dot{background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 1s infinite}
+.pill.running{border-color:var(--green);color:var(--green)}
+.pill.done{border-color:var(--accent);color:var(--accent)}
+.pill.done .pill-dot{background:var(--accent)}
+.pill.error{border-color:var(--red);color:var(--red)}
+.pill.error .pill-dot{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.alpaca-badge{font-family:var(--mono);font-size:9px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);cursor:default}
+.alpaca-badge.ok{border-color:var(--green);color:var(--green)}
+.alpaca-badge.err{border-color:var(--red);color:var(--red)}
+
+.app{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 56px)}
+.sidebar{background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sb-section{padding:16px 18px;border-bottom:1px solid var(--border)}
+.sb-label{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+
+.cg{margin-bottom:12px}
+.cl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between}
+.cl .v{color:var(--accent);font-weight:700}
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 5px var(--accent)}
+input[type=number],input[type=text],select{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:6px 9px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+input:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--s2)}
+
+.speed-row{display:flex;gap:4px}
+.speed-btn{flex:1;padding:5px 2px;font-size:10px;font-family:var(--mono);border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;text-align:center}
+.speed-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+
+.stabs{display:flex;gap:3px;margin-bottom:8px}
+.stab{flex:1;padding:5px 2px;text-align:center;font-size:9px;font-family:var(--mono);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--muted);transition:all .15s;background:transparent}
+.stab.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+
+/* Alpaca toggle */
+.alpaca-toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.toggle{position:relative;width:42px;height:22px;flex-shrink:0}
+.toggle input{display:none}
+.toggle-track{position:absolute;inset:0;background:var(--s3);border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:all .2s}
+.toggle input:checked+.toggle-track{background:var(--green);border-color:var(--green)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none}
+.toggle input:checked~.toggle-thumb{transform:translateX(20px)}
+.toggle-label{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.toggle-label strong{color:var(--green)}
+
+.stock-card{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.sc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sc-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.sc-remove{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-size:12px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.sc-remove:hover{background:var(--red-dim);color:var(--red);border-color:var(--red)}
+.sc-info{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;line-height:1.6;min-height:13px}
+.param-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.param-row input{width:56px;padding:3px 6px;font-size:10px;background:var(--s3);border:1px solid var(--border);border-radius:3px;color:var(--text);outline:none;text-align:right;-webkit-appearance:none}
+.param-row input:focus{border-color:var(--accent)}
+.sc-vwap{width:100%;margin-top:7px;padding:5px;font-size:9px;font-family:var(--mono);border:1px solid var(--accent);border-radius:4px;background:var(--accent-dim);color:var(--accent);cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.sc-vwap.off{border-color:var(--red);background:var(--red-dim);color:var(--red)}
+.add-stock-btn{width:100%;padding:9px;border:1px dashed var(--border);border-radius:6px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.add-stock-btn:hover{border-color:var(--accent);color:var(--accent)}
+.add-stock-btn:disabled{opacity:.3;cursor:not-allowed}
+
+.start-btn{width:100%;padding:13px;border:none;border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.start-btn.start{background:var(--green);color:var(--bg)}
+.start-btn.start:hover{box-shadow:0 6px 20px #00e67644;transform:translateY(-1px)}
+.start-btn.stop{background:var(--red);color:#fff}
+.start-btn.stop:hover{box-shadow:0 6px 20px #ff475744;transform:translateY(-1px)}
+.start-btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+.prog-wrap{margin-top:10px}
+.prog-label{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
+.prog-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:2px}
+
+/* Stats */
+.stats-bar{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--border);flex-shrink:0}
+.sc-stat{background:var(--s1);padding:11px 14px;border-right:1px solid var(--border)}
+.sc-stat:last-child{border-right:none}
+.sl{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.sv{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1;transition:color .3s}
+.ss{font-size:9px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--accent)}
+
+.per-stock-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;background:var(--bg)}
+.psc{padding:8px 14px;border-right:1px solid var(--border);min-width:120px;flex-shrink:0}
+.psc-ticker{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px}
+.psc-pnl{font-family:var(--mono);font-size:13px;font-weight:700;line-height:1}
+.psc-sub{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:2px;line-height:1.6}
+
+.main{display:flex;flex-direction:column;overflow:hidden}
+.chart-area{flex:1;display:flex;flex-direction:column;padding:14px;gap:12px;overflow-y:auto}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;flex-shrink:0}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:10px;font-weight:700;color:var(--muted);font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase}
+.card-badge{font-family:var(--mono);font-size:9px;padding:2px 9px;border-radius:20px;border:1px solid var(--accent);color:var(--accent);background:var(--accent-dim)}
+canvas{display:block;width:100%!important}
+
+.ticker-wrap{max-height:220px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+th{text-align:left;padding:5px 9px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:400;letter-spacing:1px;text-transform:uppercase;font-size:8px;position:sticky;top:0;background:var(--s1)}
+td{padding:5px 9px;border-bottom:1px solid #252b3d22}
+tr.new-trade td{animation:flash .6s ease}
+@keyframes flash{0%{background:#00e67622}100%{background:transparent}}
+tr:hover td{background:var(--s2)}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700}
+.badge.win{background:var(--green-dim);color:var(--green)}
+.badge.loss{background:var(--red-dim);color:var(--red)}
+.badge.sent{background:var(--orange-dim);color:var(--orange)}
+
+/* Signal log */
+.log-wrap{max-height:160px;overflow-y:auto;padding:0}
+.log-entry{font-family:var(--mono);font-size:9px;padding:3px 12px;border-bottom:1px solid var(--border);line-height:1.6}
+.log-entry .log-t{color:var(--muted);margin-right:8px}
+.log-entry.buy .log-t,.log-entry.buy{color:var(--green)}
+.log-entry.sell .log-t,.log-entry.sell{color:var(--red)}
+.log-entry.error{color:var(--red)}
+.log-entry.done{color:var(--accent)}
+
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-family:var(--mono);text-align:center;padding:40px}
+.empty-icon{font-size:44px;opacity:.2}
+.empty-text{font-size:11px;opacity:.5;line-height:1.8;max-width:320px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-mark">AT</div>
+    <div class="logo-text">Auto<span>Trader</span></div>
+    <span class="logo-badge">PAPER</span>
+  </div>
+  <div class="header-right">
+    <div class="alpaca-badge" id="alpacaBadge">Alpaca: checking…</div>
+    <div class="pill" id="statusPill"><div class="pill-dot"></div><span id="statusText">IDLE</span></div>
+    <a href="/secret/logout" style="font-family:var(--mono);font-size:9px;color:var(--muted);text-decoration:none;padding:3px 9px;border:1px solid var(--border);border-radius:20px;letter-spacing:1px;transition:all 0.2s" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">EXIT</a>
+  </div>
+</header>
+
+<div class="app">
+<aside class="sidebar">
+
+  <!-- STOCKS -->
+  <div class="sb-section">
+    <div class="sb-label">
+      Portfolio Stocks
+      <button class="add-stock-btn" id="addStockBtn" onclick="addStockCard()" style="width:auto;padding:3px 10px;border-style:solid;border-radius:4px;font-size:9px;margin-bottom:0">+ Add</button>
+    </div>
+    <div id="stockCards"></div>
+  </div>
+
+  <!-- CAPITAL & RISK -->
+  <div class="sb-section">
+    <div class="sb-label">Capital &amp; Risk</div>
+    <div class="cg">
+      <div class="cl">Starting Capital <span class="v" id="capVal">$10,000</span></div>
+      <input type="number" id="capital" value="10000" min="100" step="500" oninput="el('capVal').textContent='$'+parseInt(this.value||0).toLocaleString()"/>
+    </div>
+    <div class="cg">
+      <div class="cl">Position Size <span class="v" id="posVal">20%</span></div>
+      <input type="range" id="posSize" min="5" max="100" value="20" step="5" oninput="el('posVal').textContent=this.value+'%'"/>
+    </div>
+    <div class="cg">
+      <div class="cl">Stop-Loss <span class="v" id="slVal">2.0%</span></div>
+      <input type="range" id="stopLoss" min="0.5" max="10" value="2" step="0.5" oninput="el('slVal').textContent=parseFloat(this.value).toFixed(1)+'%'"/>
+    </div>
+    <div class="cg">
+      <div class="cl">Take-Profit <span class="v" id="tpVal">3.0%</span></div>
+      <input type="range" id="takeProfit" min="0.5" max="15" value="3" step="0.5" oninput="el('tpVal').textContent=parseFloat(this.value).toFixed(1)+'%'"/>
+    </div>
+    <div class="cg">
+      <div class="cl">Commission/trade <span class="v" id="commVal">$0.00</span></div>
+      <input type="range" id="commission" min="0" max="5" value="0" step="0.25" oninput="el('commVal').textContent='$'+parseFloat(this.value).toFixed(2)"/>
+    </div>
+    <div class="cg">
+      <div class="cl">Max trades/day <span class="v" id="maxTVal">6</span></div>
+      <input type="range" id="maxTrades" min="1" max="20" value="6" step="1" oninput="el('maxTVal').textContent=this.value"/>
+    </div>
+  </div>
+
+  <!-- ALPACA PAPER TRADING -->
+  <div class="sb-section">
+    <div class="sb-label">Alpaca Paper Trading</div>
+    <div class="alpaca-toggle-row">
+      <span class="toggle-label">Send signals to Alpaca<br/><strong id="alpacaToggleState">OFF</strong></span>
+      <label class="toggle">
+        <input type="checkbox" id="sendAlpaca" onchange="onAlpacaToggle()"/>
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div id="alpacaDetail" style="display:none">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.8;padding:8px;background:var(--s2);border-radius:6px;border:1px solid var(--border)">
+        <div id="alpacaPortVal">Portfolio: —</div>
+        <div id="alpacaBuyingPower">Buying Power: —</div>
+        <div id="alpacaCash">Cash: —</div>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:8px;line-height:1.6;opacity:.7">
+      ⚠ Orders go to paper-api.alpaca.markets. Set ALPACA_API_KEY + ALPACA_API_SECRET in .env
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="sb-section">
+    <div class="sb-label">Live Status</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:2">
+      <div>Bars processed: <span style="color:var(--accent)" id="barLabel">0</span></div>
+      <div>Last bar: <span style="color:var(--accent)" id="lastBarTime">—</span></div>
+      <div>Next bar: <span style="color:var(--accent)" id="nextBarIn">—</span></div>
+    </div>
+  </div>
+
+  <div class="sb-section" style="border-bottom:none">
+    <button class="start-btn start" id="startBtn" onclick="toggleSim()">▶ START</button>
+  </div>
+</aside>
+
+<main class="main">
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="sc-stat"><div class="sl">Portfolio Value</div><div class="sv neu" id="sPort">—</div><div class="ss" id="sRet">—</div></div>
+    <div class="sc-stat"><div class="sl">Open Positions</div><div class="sv" id="sPos">—</div><div class="ss" id="sUnreal">—</div></div>
+    <div class="sc-stat"><div class="sl">Win Rate</div><div class="sv" id="sWR">—</div><div class="ss" id="sWL">0W / 0L</div></div>
+    <div class="sc-stat"><div class="sl">Total P&amp;L</div><div class="sv" id="sPnl">—</div><div class="ss" id="sTrades">0 trades</div></div>
+    <div class="sc-stat"><div class="sl">Max Drawdown</div><div class="sv neg" id="sDD">—</div><div class="ss">peak-to-trough</div></div>
+    <div class="sc-stat"><div class="sl">Alpaca Orders</div><div class="sv neu" id="sAlpacaOrders">—</div><div class="ss" id="sAlpacaFills">pending</div></div>
+  </div>
+
+  <!-- PER-STOCK ROW -->
+  <div class="per-stock-bar" id="perStockBar" style="display:none"></div>
+
+  <div class="chart-area">
+    <div class="empty" id="emptyState">
+      <div class="empty-icon">📈</div>
+      <div class="empty-text">
+        Add tickers, configure strategies, then hit <strong style="color:var(--green)">START</strong>.<br/><br/>
+        Toggle <strong style="color:var(--orange)">Alpaca Paper Trading</strong> to forward live signals to your paper account.
+      </div>
+    </div>
+
+    <div id="liveResults" style="display:none">
+      <div id="stockChartsContainer" style="display:grid;gap:12px"></div>
+
+      <!-- Signal log -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Signal Log</div>
+          <div class="card-badge" id="logCountBadge">0 events</div>
+        </div>
+        <div class="log-wrap" id="signalLog"></div>
+      </div>
+
+      <!-- Trade log -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Trade Log</div>
+          <div class="card-badge" id="tradeCountBadge">0 trades</div>
+        </div>
+        <div class="ticker-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Ticker</th><th>Exit</th><th>Entry $</th><th>Exit $</th><th>Shares</th><th>P&L</th><th>Return</th><th>Reason</th><th>Result</th><th>Alpaca</th></tr>
+            </thead>
+            <tbody id="tradeBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+const el = id => document.getElementById(id);
+const LANE_COLORS = ['#00e5ff','#00e676','#ff9800','#e040fb','#ff4757','#ffd740','#40c4ff','#69f0ae'];
+
+let portfolio    = [];          // { ticker, strategy, params, vwapFilter }
+let stockCharts  = [];
+let laneIdCtr    = 0;
+let simRunning   = false;
+let pollTimer    = null;
+let lastLogCount = 0;
+let lastTradeKey = "";
+let barCount     = 0;
+
+// ── Alpaca ───────────────────────────────────────────────────────────────────
+async function checkAlpaca() {
+  try {
+    const r = await fetch('/autotrader/api/alpaca/status');
+    const d = await r.json();
+    const badge = el('alpacaBadge');
+    if (d.connected) {
+      badge.textContent = `Alpaca: $${parseFloat(d.buying_power).toLocaleString('en',{maximumFractionDigits:0})} BP`;
+      badge.className = 'alpaca-badge ok';
+      el('alpacaPortVal').textContent   = `Portfolio: $${parseFloat(d.portfolio_value).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      el('alpacaBuyingPower').textContent = `Buying Power: $${parseFloat(d.buying_power).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      el('alpacaCash').textContent      = `Cash: $${parseFloat(d.cash).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    } else {
+      badge.textContent = `Alpaca: ${d.error||'not connected'}`;
+      badge.className = 'alpaca-badge err';
+    }
+  } catch(e) {
+    el('alpacaBadge').textContent = 'Alpaca: offline';
+    el('alpacaBadge').className = 'alpaca-badge err';
+  }
+}
+
+function onAlpacaToggle() {
+  const on = el('sendAlpaca').checked;
+  el('alpacaToggleState').textContent = on ? 'ON — signals will be sent' : 'OFF';
+  el('alpacaDetail').style.display = on ? 'block' : 'none';
+  if (on) checkAlpaca();
+}
+
+// ── Stock cards ──────────────────────────────────────────────────────────────
+function paramsHTML(lane) {
+  const p = lane.params;
+  if (lane.strategy === 'rsi') return `
+    <div class="param-row"><span>Period</span><input type="number" min="5" max="30" value="${p.rsiP}" onchange="updateParam(${lane.id},'rsiP',+this.value)"/></div>
+    <div class="param-row"><span>Oversold</span><input type="number" min="10" max="45" value="${p.rsiOs}" onchange="updateParam(${lane.id},'rsiOs',+this.value)"/></div>
+    <div class="param-row"><span>Overbought</span><input type="number" min="55" max="90" value="${p.rsiOb}" onchange="updateParam(${lane.id},'rsiOb',+this.value)"/></div>`;
+  if (lane.strategy === 'ma') return `
+    <div class="param-row"><span>Fast MA</span><input type="number" min="2" max="20" value="${p.maF}" onchange="updateParam(${lane.id},'maF',+this.value)"/></div>
+    <div class="param-row"><span>Slow MA</span><input type="number" min="5" max="50" value="${p.maSl}" onchange="updateParam(${lane.id},'maSl',+this.value)"/></div>`;
+  if (lane.strategy === 'bb') return `
+    <div class="param-row"><span>Period</span><input type="number" min="5" max="50" value="${p.bbP}" onchange="updateParam(${lane.id},'bbP',+this.value)"/></div>
+    <div class="param-row"><span>Std Dev</span><input type="number" min="1" max="4" step="0.1" value="${p.bbS}" onchange="updateParam(${lane.id},'bbS',+this.value)"/></div>`;
+  return '';
+}
+
+function cardHTML(lane, i) {
+  const color = LANE_COLORS[i % LANE_COLORS.length];
+  const totalW = portfolio.reduce((s,l)=>s+l.weight,0);
+  const warnColor = totalW !== 100 ? 'var(--red)' : 'var(--muted)';
+  return `<div class="stock-card" id="card-${lane.id}">
+    <div class="sc-header">
+      <div class="sc-label" style="color:${color}">${lane.ticker || '?'}</div>
+      <button class="sc-remove" onclick="removeStock(${lane.id})">✕</button>
+    </div>
+    <input type="text" placeholder="Ticker (e.g. AAPL)" value="${lane.ticker}" style="margin-bottom:8px;text-transform:uppercase"
+      onchange="updateTicker(${lane.id},this.value)"/>
+    <div class="param-row" style="margin-bottom:8px">
+      <span style="color:var(--muted)">Allocation %</span>
+      <input type="number" min="1" max="100" value="${lane.weight}" style="width:56px;color:${color};font-weight:700"
+        onchange="updateWeight(${lane.id},+this.value)"/>
+    </div>
+    <div id="weightWarn-${lane.id}" style="font-family:var(--mono);font-size:8px;color:${warnColor};margin-bottom:6px;text-align:right">
+      ${totalW !== 100 ? `total: ${totalW}% (must = 100%)` : `total: 100% ✓`}
+    </div>
+    <div class="stabs">
+      <button class="stab ${lane.strategy==='rsi'?'active':''}" onclick="setStrat(${lane.id},'rsi')">RSI</button>
+      <button class="stab ${lane.strategy==='ma'?'active':''}"  onclick="setStrat(${lane.id},'ma')">MA Cross</button>
+      <button class="stab ${lane.strategy==='bb'?'active':''}"  onclick="setStrat(${lane.id},'bb')">Bollinger</button>
+    </div>
+    <div id="params-${lane.id}">${paramsHTML(lane)}</div>
+    <button class="sc-vwap ${lane.vwapFilter?'':'off'}" id="vwap-${lane.id}" onclick="toggleVwap(${lane.id})">
+      VWAP FILTER: ${lane.vwapFilter?'ON':'OFF'}
+    </button>
+  </div>`;
+}
+
+function renderCards() {
+  el('stockCards').innerHTML = portfolio.map((l,i)=>cardHTML(l,i)).join('');
+}
+
+function addStockCard() {
+  if (simRunning) return;
+  portfolio.push({ id: ++laneIdCtr, ticker: '', strategy: 'rsi', vwapFilter: true,
+    weight: 0,
+    params: {rsiP:14,rsiOs:30,rsiOb:70,maF:9,maSl:21,bbP:20,bbS:2.0} });
+  distributeWeights();
+  renderCards();
+}
+
+function removeStock(id) {
+  portfolio = portfolio.filter(l=>l.id!==id);
+  distributeWeights();
+  renderCards();
+}
+
+function distributeWeights() {
+  // Auto-distribute equally, remainder goes to first stock
+  if (!portfolio.length) return;
+  const each = Math.floor(100 / portfolio.length);
+  const rem  = 100 - each * portfolio.length;
+  portfolio.forEach((l, i) => { l.weight = each + (i === 0 ? rem : 0); });
+}
+
+function updateWeight(id, val) {
+  const l = portfolio.find(l=>l.id===id);
+  if (l) { l.weight = Math.max(1, Math.min(100, val)); renderCards(); }
+}
+
+function updateTicker(id, v) {
+  const l = portfolio.find(l=>l.id===id);
+  if (l) { l.ticker = v.trim().toUpperCase(); renderCards(); }
+}
+
+function setStrat(id, s) {
+  const l = portfolio.find(l=>l.id===id);
+  if (l) { l.strategy = s; renderCards(); }
+}
+
+function updateParam(id, key, val) {
+  const l = portfolio.find(l=>l.id===id);
+  if (l) l.params[key] = val;
+}
+
+function toggleVwap(id) {
+  const l = portfolio.find(l=>l.id===id);
+  if (!l) return;
+  l.vwapFilter = !l.vwapFilter;
+  const btn = el(`vwap-${id}`);
+  btn.textContent = `VWAP FILTER: ${l.vwapFilter?'ON':'OFF'}`;
+  btn.classList.toggle('off', !l.vwapFilter);
+}
+
+// ── Simulation control ───────────────────────────────────────────────────────
+async function toggleSim() {
+  if (!simRunning) await startSim(); else await stopSim();
+}
+
+async function startSim() {
+  const tickers = portfolio.map(l=>l.ticker).filter(Boolean);
+  if (!tickers.length) { alert('Add at least one ticker.'); return; }
+
+  // Validate weights sum to 100
+  const totalW = portfolio.filter(l=>l.ticker).reduce((s,l)=>s+l.weight, 0);
+  if (totalW !== 100) {
+    alert(`Allocations must add up to 100%.\nCurrent total: ${totalW}%`);
+    return;
+  }
+
+  const capital = parseFloat(el('capital').value) || 10000;
+  const stocks  = portfolio.filter(l=>l.ticker).map(l=>({
+    ticker:     l.ticker,
+    strategy:   l.strategy,
+    params:     l.params,
+    vwapFilter: l.vwapFilter,
+    weight:     l.weight,
+  }));
+  const body = {
+    stocks, capital,
+    posSize:      +el('posSize').value,
+    stopLoss:     +el('stopLoss').value,
+    takeProfit:   +el('takeProfit').value,
+    commission:   +el('commission').value,
+    maxTrades:    +el('maxTrades').value,
+    sendToAlpaca: el('sendAlpaca').checked,
+  };
+  const r = await fetch('/autotrader/api/start', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+
+  simRunning = true;
+  barCount   = 0;
+  el('startBtn').className = 'start-btn stop';
+  el('startBtn').textContent = '■ STOP';
+  el('emptyState').style.display = 'none';
+  el('liveResults').style.display = 'block';
+  el('perStockBar').style.display = 'flex';
+  setStatus('WARMING UP','running');
+  initCharts(stocks.map(s=>s.ticker));
+  lastLogCount = 0;
+  lastTradeKey = '';
+  pollTimer = setInterval(pollState, 3000);  // poll every 3s
+}
+
+async function stopSim() {
+  await fetch('/autotrader/api/stop', {method:'POST'});
+  clearInterval(pollTimer);
+  simRunning = false;
+  el('startBtn').className = 'start-btn start';
+  el('startBtn').textContent = '▶ START';
+  setStatus('IDLE','');
+}
+
+// ── Polling ──────────────────────────────────────────────────────────────────
+const STATUS_LABELS = {
+  idle:     ['IDLE',     ''],
+  starting: ['STARTING', 'running'],
+  warming:  ['WARMING UP','running'],
+  waiting:  ['WAITING FOR OPEN','running'],
+  live:     ['LIVE','running'],
+  done:     ['MARKET CLOSED','done'],
+  error:    ['ERROR','error'],
+};
+
+async function pollState() {
+  let d;
+  try {
+    const r = await fetch('/autotrader/api/state');
+    d = await r.json();
+  } catch(e) { return; }
+
+  // Update status pill from server status
+  const [label, mode] = STATUS_LABELS[d.status] || ['IDLE',''];
+  setStatus(label, mode);
+
+  if (!d.running && simRunning) {
+    clearInterval(pollTimer);
+    simRunning = false;
+    el('startBtn').className = 'start-btn start';
+    el('startBtn').textContent = '▶ START';
+  }
+
+  updateStats(d);
+  updateLog(d.log || []);
+  updateTrades(d);
+  updatePerStock(d.portfolio || []);
+  updateAlpacaStats(d.alpaca_orders || []);
+  updateLiveInfo(d);
+  updateCharts(d.portfolio || []);
+}
+
+function updateLiveInfo(d) {
+  const log = d.log || [];
+  // Count BAR entries for bar counter
+  const bars = log.filter(e=>e.msg.startsWith('[BAR]')).length;
+  if (bars > barCount) barCount = bars;
+  if (el('barLabel')) el('barLabel').textContent = barCount;
+
+  // Last bar time from most recent BAR log entry
+  const lastBar = [...log].reverse().find(e=>e.msg.startsWith('[BAR]'));
+  if (lastBar && el('lastBarTime')) {
+    const match = lastBar.msg.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+    if (match) el('lastBarTime').textContent = match[0].slice(5); // MM-DD HH:MM
+  }
+
+  // Next bar countdown from "Next bar in Xs" log entry
+  const nextEntry = [...log].reverse().find(e=>e.msg.startsWith('Next bar in'));
+  if (nextEntry && el('nextBarIn')) {
+    el('nextBarIn').textContent = nextEntry.msg.replace('Next bar in ','').replace('…','');
+  }
+}
+
+function updateStats(d) {
+  const cap  = d.total_capital || 1;
+  const eq   = d.total_equity  || cap;   // real Alpaca portfolio_value
+  const pnl  = eq - cap;
+  const pct  = (pnl / cap * 100).toFixed(2);
+
+  // Trades from engine (closed trades only — they have real fill prices)
+  const allT   = (d.portfolio||[]).flatMap(l=>l.trades||[]);
+  const wins   = allT.filter(t=>t.pnl>0).length;
+  const losses = allT.filter(t=>t.pnl<=0).length;
+  const wr     = allT.length ? (wins/allT.length*100).toFixed(1)+'%' : '—';
+  const cPnl   = allT.reduce((s,t)=>s+t.pnl, 0);
+
+  // Open positions from real Alpaca data
+  const openPos = d.open_positions || [];
+  const totalUnreal = openPos.reduce((s,p)=>s+(p.unrealized_pl||0), 0);
+  const openTickers = openPos.map(p=>p.symbol).join(', ') || 'none';
+
+  el('sPort').textContent = '$'+eq.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  el('sPort').className   = 'sv '+(eq>=cap?'pos':'neg');
+  el('sRet').textContent  = (pnl>=0?'+':'')+pnl.toFixed(2)+' ('+pct+'%)';
+  el('sPos').textContent  = openTickers;
+  el('sUnreal').textContent = (totalUnreal>=0?'+':'-')+'$'+Math.abs(totalUnreal).toFixed(2)+' unrealized';
+  el('sUnreal').className = totalUnreal>=0?'ss pos':'ss neg';
+  el('sWR').textContent   = wr;
+  el('sWR').className     = 'sv '+(wins>=losses?'pos':'neg');
+  el('sWL').textContent   = `${wins}W / ${losses}L`;
+  el('sPnl').textContent  = (cPnl>=0?'+':'-')+'$'+Math.abs(cPnl).toFixed(2);
+  el('sPnl').className    = 'sv '+(cPnl>=0?'pos':'neg');
+  el('sTrades').textContent = allT.length+' closed trades';
+  el('sDD').textContent   = (d.max_dd||0).toFixed(2)+'%';
+  el('barLabel').textContent = barCount;
+}
+
+function updateAlpacaStats(orders) {
+  const n  = orders.length;
+  const ok = orders.filter(o=>o.success).length;
+  el('sAlpacaOrders').textContent = n > 0 ? n : '—';
+  el('sAlpacaFills').textContent  = n > 0 ? `${ok} sent / ${n-ok} failed` : 'no orders';
+}
+
+function updatePerStock(lanes) {
+  // Merge engine lanes with real Alpaca position data
+  el('perStockBar').innerHTML = lanes.map((lane,i)=>{
+    const wins   = (lane.trades||[]).filter(t=>t.pnl>0).length;
+    const losses = (lane.trades||[]).filter(t=>t.pnl<=0).length;
+    const color  = LANE_COLORS[i%LANE_COLORS.length];
+    const ret    = (lane.equity||lane.capital) - lane.capital;
+
+    // Position details from real Alpaca data
+    const pos = lane.position;
+    const posDetail = pos
+      ? `${pos.shares} shares · unreal: ${pos.unrealized_pl>=0?'+':''}$${parseFloat(pos.unrealized_pl||0).toFixed(2)}`
+      : 'no position';
+
+    return `<div class="psc" style="border-left:3px solid ${color}">
+      <div class="psc-ticker">${lane.ticker}</div>
+      <div class="psc-pnl ${ret>=0?'pos':'neg'}">${ret>=0?'+':'-'}$${Math.abs(ret).toFixed(2)}</div>
+      <div class="psc-sub">${lane.strategy.toUpperCase()} · ${wins}W/${losses}L · ${posDetail}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateLog(entries) {
+  if (entries.length <= lastLogCount) return;
+  const wrap = el('signalLog');
+  entries.slice(lastLogCount).forEach(e => {
+    const div = document.createElement('div');
+    div.className = `log-entry ${e.level||'info'}`;
+    div.innerHTML = `<span class="log-t">${e.t}</span>${e.msg}`;
+    wrap.insertBefore(div, wrap.firstChild);
+  });
+  lastLogCount = entries.length;
+  el('logCountBadge').textContent = entries.length + ' events';
+}
+
+function updateTrades(d) {
+  const allT = (d.portfolio||[]).flatMap(l=>(l.trades||[]).map(t=>({...t,alpaca: false})));
+  // Match against alpaca orders
+  const ao   = d.alpaca_orders || [];
+  const key  = allT.length + ':' + ao.length;
+  if (key === lastTradeKey) return;
+  lastTradeKey = key;
+
+  const tbody = el('tradeBody');
+  tbody.innerHTML = '';
+  allT.slice().reverse().forEach(t => {
+    const matched = ao.find(o=>o.ticker===t.ticker && o.side==='SELL');
+    const r = document.createElement('tr');
+    r.className = 'new-trade';
+    r.innerHTML = `
+      <td style="color:var(--muted)">${t.num}</td>
+      <td style="color:var(--accent);font-weight:700;font-size:9px">${t.ticker}</td>
+      <td>${(t.exitTime||'').slice(5,16)}</td>
+      <td>$${t.entryPrice}</td>
+      <td>$${t.exitPrice}</td>
+      <td>${t.shares}</td>
+      <td class="${t.pnl>=0?'pos':'neg'}">${t.pnl>=0?'+':'-'}$${Math.abs(t.pnl).toFixed(2)}</td>
+      <td class="${t.pct>=0?'pos':'neg'}">${t.pct>=0?'+':''}${t.pct}%</td>
+      <td style="color:var(--muted);font-size:8px">${t.reason}</td>
+      <td><span class="badge ${t.win?'win':'loss'}">${t.win?'WIN':'LOSS'}</span></td>
+      <td>${matched?`<span class="badge sent">SENT</span>`:'—'}</td>`;
+    tbody.appendChild(r);
+  });
+  el('tradeCountBadge').textContent = allT.length + ' trades';
+}
+
+function updateCharts(lanes) {
+  lanes.forEach((lane, i) => {
+    const chart = stockCharts[i];
+    if (!chart || !lane.prices || !lane.prices.length) return;
+    const prices = lane.prices;
+    const labels = prices.map((_,j) => `bar ${j+1}`);
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = prices;
+
+    // Mark buy/sell from trades
+    const buys  = new Array(prices.length).fill(null);
+    const sells = new Array(prices.length).fill(null);
+    (lane.trades || []).forEach(t => {
+      // approximate index from end
+      const idx = prices.length - 1;
+      if (t.pnl >= 0) sells[idx] = t.exitPrice;
+    });
+    chart.data.datasets[1].data = buys;
+    chart.data.datasets[2].data = sells;
+    chart.update('none');
+  });
+}
+
+// ── Charts ───────────────────────────────────────────────────────────────────
+function initCharts(tickers) {
+  stockCharts.forEach(c=>c&&c.destroy());
+  stockCharts = [];
+  const container = el('stockChartsContainer');
+  const cols = Math.min(tickers.length, 3);
+  container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  container.innerHTML = tickers.map((t,i)=>{
+    const color = LANE_COLORS[i%LANE_COLORS.length];
+    return `<div class="card">
+      <div class="card-header">
+        <div class="card-title" style="color:${color}">${t} · Price</div>
+        <div class="card-badge" style="border-color:${color};color:${color};background:transparent" id="stratBadge-${i}">—</div>
+      </div>
+      <canvas id="pchart-${i}" height="130"></canvas>
+    </div>`;
+  }).join('');
+
+  tickers.forEach((_,i)=>{
+    const color = LANE_COLORS[i%LANE_COLORS.length];
+    stockCharts.push(new Chart(el(`pchart-${i}`), {
+      type:'line',
+      data:{ labels:[], datasets:[
+        { label:'Price', data:[], borderColor:color, borderWidth:1.5, pointRadius:0, fill:false, tension:0.1 },
+        { label:'Buy',  data:[], type:'scatter', backgroundColor:'#00e676', pointRadius:7, pointStyle:'triangle', showLine:false },
+        { label:'Sell', data:[], type:'scatter', backgroundColor:'#ff4757', pointRadius:7, pointStyle:'triangle', rotation:180, showLine:false },
+      ]},
+      options:{ responsive:true, animation:false, interaction:{mode:'index',intersect:false},
+        plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#1c2030',borderColor:'#252b3d',borderWidth:1,titleColor:'#00e5ff',bodyColor:'#e8eaf0',titleFont:{family:'Space Mono',size:10},bodyFont:{family:'Space Mono',size:10}} },
+        scales:{ x:{ticks:{color:'#5a6380',font:{family:'Space Mono',size:8},maxTicksLimit:6},grid:{color:'#1c203055'}},
+                 y:{ticks:{color:'#5a6380',font:{family:'Space Mono',size:8},callback:v=>'$'+v.toFixed(2)},grid:{color:'#1c203055'}} } }
+    }));
+  });
+}
+
+// ── Status pill ──────────────────────────────────────────────────────────────
+function setStatus(txt, mode) {
+  el('statusText').textContent = txt;
+  el('statusPill').className   = 'pill '+(mode||'');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+checkAlpaca();
+setInterval(checkAlpaca, 30000);
+addStockCard(); // start with one empty card at 100%
+</script>
+</body>
+</html>

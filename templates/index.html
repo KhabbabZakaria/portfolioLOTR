@@ -154,6 +154,8 @@
     footer{border-top:1px solid var(--border);padding:1.75rem 6rem;display:flex;justify-content:space-between;align-items:center}
     .footer-text{font-size:0.78rem;color:var(--muted)}
     .footer-code{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:rgba(255,255,255,0.18)}
+    .secret-btn{font-size:0.6rem;color:rgba(255,255,255,0.07);text-decoration:none;transition:color 0.4s,text-shadow 0.4s;cursor:pointer;user-select:none}
+    .secret-btn:hover{color:rgba(0,212,255,0.5);text-shadow:0 0 8px rgba(0,212,255,0.4)}
 
     /* ANIMATIONS */
     @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -579,6 +581,7 @@
 <footer>
   <div class="footer-text">© 2026 Khabbab Zakaria</div>
   <div class="footer-code">Built with Flask · Python · HTML/CSS</div>
+  <a href="/secret" class="secret-btn" title="Secret">◆</a>
 </footer>
 
 <script>

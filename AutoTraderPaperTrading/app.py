@@ -1,66 +1,45 @@
 """
-Portfolio + AutoTrader — Unified Flask App
-==========================================
-Routes:
-  /              → Portfolio homepage
-  /classic       → LOTR-themed classic portfolio
-  /about         → About page
-  /portfolio     → Work experience
-  /moreworks     → Additional works
+AutoTrader — True Paper Trading
+================================
+Live flow:
+  1. On START → fetch warmup bars from Alpaca (last 50 x 1-min bars per ticker)
+  2. Run engine on warmup bars to prime indicators (no orders sent)
+  3. Every 60s → fetch the latest completed 1-min bar from Alpaca
+  4. Run engine on that bar → if BUY/SELL signal fires, send order to Alpaca paper account
+  5. UI polls /api/state every 3s to refresh charts and stats
 
-  /secret        → Secret login (password: Thenightsky123@)
-  /autotrader    → AutoTrader Paper Trading (requires secret auth)
-  /autotrader/api/...  → AutoTrader API endpoints (requires secret auth)
+No CSV files. No data_api. Just Alpaca.
 """
 
 import os
-import sys
 import time
 import threading
 import logging
 from datetime import datetime
-from functools import wraps
 
-# Add AutoTrader directory to path so we can import its modules
-_autotrader_dir = os.path.join(os.path.dirname(__file__), 'AutoTraderPaperTrading')
-sys.path.insert(0, _autotrader_dir)
-
-from flask import Flask, render_template, redirect, url_for, request, session, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# Load .env from AutoTrader dir if present, else fall back to repo root
-_env_path = os.path.join(_autotrader_dir, '.env')
-if not os.path.exists(_env_path):
-    _env_path = os.path.join(os.path.dirname(__file__), '.env')
-load_dotenv(_env_path)
+from engine import Lane, process_bar
+from alpaca_bridge import bridge
+from live_feed import (
+    fetch_warmup_bars, fetch_latest_bar,
+    is_market_open, seconds_until_market_open,
+)
 
-try:
-    from engine import Lane, process_bar
-    from alpaca_bridge import bridge
-    from live_feed import (
-        fetch_warmup_bars, fetch_latest_bar,
-        is_market_open, seconds_until_market_open,
-    )
-    AUTOTRADER_AVAILABLE = True
-except ImportError as e:
-    AUTOTRADER_AVAILABLE = False
-    logger.warning(f"AutoTrader modules unavailable (run with venv): {e}")
-
+load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("autotrader")
 
 app = Flask(__name__)
-app.secret_key = 'portfolioLOTR-secret-key-2024'
 CORS(app)
 
-SECRET_PASSWORD = "Thenightsky123@"
-
-# ── AutoTrader global state ────────────────────────────────────────────────────
+# ── Global state ──────────────────────────────────────────────────────────────
 state = {
     "running":        False,
-    "status":         "idle",
-    "portfolio":      [],
+    "status":         "idle",       # idle | warming | waiting | live | done | error
+    "portfolio":      [],           # Lane objects
     "cfg":            {},
     "equity":         [],
     "peak_equity":    0.0,
@@ -68,14 +47,14 @@ state = {
     "log":            [],
     "alpaca_orders":  [],
     "send_to_alpaca": False,
-    "last_bar_time":  {},
+    "last_bar_time":  {},           # ticker → last bar timestamp (dedup)
 }
 
 _lock   = threading.Lock()
 _thread = None
 
 
-# ── AutoTrader helpers ─────────────────────────────────────────────────────────
+# ── Logging helper ────────────────────────────────────────────────────────────
 def log_event(msg: str, level: str = "info"):
     entry = {"t": datetime.now().strftime("%H:%M:%S"), "msg": msg, "level": level}
     with _lock:
@@ -90,21 +69,23 @@ def set_status(s: str):
         state["status"] = s
 
 
+# ── Core: process one bar through engine + optionally fire Alpaca order ───────
 def handle_bar(lane: Lane, bar: dict, cfg: dict, send_alpaca: bool):
     result = process_bar(lane, bar, cfg)
 
     if not send_alpaca:
         return result
 
+    # BUY — only send if Alpaca doesn't already hold this ticker
     if result["buy_pt"] and lane.position:
         shares = lane.position.shares
         existing_pos = bridge.get_positions()
         already_held = any(p["symbol"] == lane.ticker.upper() and p["qty"] > 0
                            for p in existing_pos)
         if already_held:
-            log_event(f"[SKIP] BUY {lane.ticker} — already held, skipping duplicate order", "error")
+            log_event(f"[SKIP] BUY {lane.ticker} — Alpaca already holds a position, skipping duplicate order", "error")
         else:
-            resp = bridge.place_buy(lane.ticker, shares)
+            resp  = bridge.place_buy(lane.ticker, shares)
             entry = {
                 "t": bar["t"], "ticker": lane.ticker,
                 "side": "BUY", "shares": shares, "price": result["buy_pt"],
@@ -116,8 +97,9 @@ def handle_bar(lane: Lane, bar: dict, cfg: dict, send_alpaca: bool):
             log_event(f"[ALPACA] BUY {shares}× {lane.ticker} @ ~${result['buy_pt']:.2f} — {status}",
                       "buy" if resp["success"] else "error")
 
+    # SELL
     if result["sell_pt"] and result["trade"]:
-        resp = bridge.close_position(lane.ticker)
+        resp  = bridge.close_position(lane.ticker)
         entry = {
             "t": bar["t"], "ticker": lane.ticker,
             "side": "SELL", "shares": result["trade"].shares,
@@ -134,10 +116,12 @@ def handle_bar(lane: Lane, bar: dict, cfg: dict, send_alpaca: bool):
     return result
 
 
-# ── Warmup + reset + Alpaca sync (runs at start of each trading day) ──────────
+# ── Warmup + reset + sync helper (called every trading day) ──────────────────
 def _warmup_and_reset(portfolio, cfg) -> bool:
-    """Fetch warmup bars, reset daily state, sync existing Alpaca positions.
-    Returns True on success, False on failure."""
+    """
+    Fetch warmup bars, reset daily state, sync existing Alpaca positions.
+    Returns True on success, False on failure.
+    """
     set_status("warming")
     log_event("Fetching warmup bars from Alpaca (priming indicators)…")
     for lane in portfolio:
@@ -155,6 +139,7 @@ def _warmup_and_reset(portfolio, cfg) -> bool:
 
     log_event("Warmup complete — indicators primed, ready to trade.")
 
+    # Reset daily financial state (keep closes[] for indicators)
     for lane in portfolio:
         lane.cash               = lane.capital
         lane.position           = None
@@ -174,6 +159,7 @@ def _warmup_and_reset(portfolio, cfg) -> bool:
         lane.vwap               = 0.0
         lane.current_date       = None
 
+    # Sync existing Alpaca positions so we don't double-buy after a restart
     existing = {p["symbol"]: p for p in bridge.get_positions()}
     for lane in portfolio:
         ap = existing.get(lane.ticker.upper())
@@ -206,7 +192,7 @@ def _sleep_interruptible(seconds: int) -> bool:
     return True
 
 
-# ── Background thread: runs until user clicks STOP (multi-day loop) ───────────
+# ── Background thread: runs forever until user clicks STOP ───────────────────
 def run_live():
     with _lock:
         portfolio   = state["portfolio"]
@@ -216,18 +202,20 @@ def run_live():
     tickers = [l.ticker for l in portfolio]
     log_event(f"Starting live paper trading for: {', '.join(tickers)}")
 
-    # Outer loop: one iteration = one trading day
+    # ── Outer loop: one iteration = one trading day ───────────────────────────
     while True:
         with _lock:
             if not state["running"]:
                 break
 
+        # ── Warmup ────────────────────────────────────────────────────────────
         ok = _warmup_and_reset(portfolio, cfg)
         if not ok:
             with _lock:
                 state["running"] = False
             break
 
+        # ── Wait for market open ──────────────────────────────────────────────
         if not is_market_open():
             secs = seconds_until_market_open()
             hrs  = int(secs // 3600)
@@ -246,16 +234,18 @@ def run_live():
         with _lock:
             state["last_bar_time"] = {}   # reset bar dedup for new day
 
-        # Inner loop: one iteration = one 1-minute bar
+        # ── Inner loop: one iteration = one 1-minute bar ──────────────────────
         while True:
             with _lock:
                 if not state["running"]:
                     break
 
+            # Market closed → end of trading day
             if not is_market_open():
                 log_event("Market closed for the day.", "done")
                 set_status("eod")
 
+                # Close all open positions EOD
                 if send_alpaca:
                     for lane in portfolio:
                         if lane.position:
@@ -266,6 +256,7 @@ def run_live():
                                 "sell" if resp.get("success") else "error"
                             )
 
+                # Sleep until next market open (overnight)
                 secs = seconds_until_market_open()
                 hrs  = int(secs // 3600)
                 mins = int((secs % 3600) // 60)
@@ -273,28 +264,35 @@ def run_live():
                 set_status("waiting")
 
                 if not _sleep_interruptible(int(secs) - 120):
+                    # User hit STOP during overnight sleep
                     log_event("Stopped during overnight sleep.")
                     return
 
+                # 2 minutes before open — break inner loop to re-warmup
                 log_event("2 minutes to market open — running warmup for new day…")
-                break   # back to outer loop (re-warmup)
+                break   # → back to outer loop (re-warmup)
 
+            # Fetch and process latest bar for each ticker
             for lane in portfolio:
                 try:
                     bar = fetch_latest_bar(lane.ticker)
                     if bar is None:
                         continue
+
                     with _lock:
                         last = state["last_bar_time"].get(lane.ticker)
                     if bar["t"] == last:
                         continue
                     with _lock:
                         state["last_bar_time"][lane.ticker] = bar["t"]
+
                     log_event(f"[BAR] {lane.ticker} {bar['t']}  C:${bar['c']}  V:{bar['v']:,}")
                     handle_bar(lane, bar, cfg, send_alpaca)
+
                 except Exception as e:
                     log_event(f"Error processing {lane.ticker}: {e}", "error")
 
+            # Update combined equity snapshot
             with _lock:
                 combined = sum(
                     (l.equity[-1] if l.equity else l.capital)
@@ -308,6 +306,7 @@ def run_live():
                     if dd > state["max_dd"]:
                         state["max_dd"] = dd
 
+            # Sleep until next minute boundary
             now   = time.time()
             sleep = 60 - (now % 60) + 2
             log_event(f"Next bar in {sleep:.0f}s…")
@@ -317,107 +316,45 @@ def run_live():
     log_event("Live trading thread exited.")
 
 
-# ── Auth decorator ─────────────────────────────────────────────────────────────
-def require_secret(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not AUTOTRADER_AVAILABLE:
-            return "AutoTrader unavailable — run the app with the project venv (./venv/bin/python3 app.py)", 503
-        if not session.get('autotrader_auth'):
-            return redirect(url_for('secret_login'))
-        return f(*args, **kwargs)
-    return decorated
+# ── Flask routes ──────────────────────────────────────────────────────────────
 
-
-# ── Portfolio routes ───────────────────────────────────────────────────────────
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/classic')
-def classic():
-    return render_template('lotr_index.html')
-
-
-@app.route('/about')
-def about():
-    return render_template('about.html')
-
-
-@app.route('/portfolio')
-def portfolio():
-    return render_template('portfolio.html')
-
-
-@app.route('/moreworks')
-def portfolio2():
-    return render_template('portfolio2.html')
-
-
-# ── Secret auth routes ─────────────────────────────────────────────────────────
-@app.route('/secret', methods=['GET', 'POST'])
-def secret_login():
-    if session.get('autotrader_auth'):
-        return redirect(url_for('autotrader_index'))
-    error = False
-    if request.method == 'POST':
-        if request.form.get('password') == SECRET_PASSWORD:
-            session['autotrader_auth'] = True
-            return redirect(url_for('autotrader_index'))
-        error = True
-    return render_template('secret.html', error=error)
-
-
-@app.route('/secret/logout')
-def secret_logout():
-    session.pop('autotrader_auth', None)
-    return redirect(url_for('index'))
-
-
-# ── AutoTrader routes (session-protected) ─────────────────────────────────────
-@app.route('/autotrader/')
-@app.route('/autotrader')
-@require_secret
-def autotrader_index():
-    return render_template('autotrader.html')
-
-
-@app.route('/autotrader/api/alpaca/status')
-@require_secret
-def autotrader_alpaca_status():
+@app.route("/api/alpaca/status")
+def alpaca_status():
     return jsonify(bridge.status())
 
 
-@app.route('/autotrader/api/alpaca/positions')
-@require_secret
-def autotrader_alpaca_positions():
+@app.route("/api/alpaca/positions")
+def alpaca_positions():
     return jsonify({"positions": bridge.get_positions()})
 
 
-@app.route('/autotrader/api/alpaca/orders')
-@require_secret
-def autotrader_alpaca_orders():
+@app.route("/api/alpaca/orders")
+def alpaca_orders():
     with _lock:
         local = list(state["alpaca_orders"])
     live = bridge.get_recent_orders(limit=20)
     return jsonify({"local_signals": local, "alpaca_orders": live})
 
 
-@app.route('/autotrader/api/start', methods=['POST'])
-@require_secret
-def autotrader_start():
+@app.route("/api/start", methods=["POST"])
+def start():
     global _thread
     with _lock:
         if state["running"]:
             return jsonify({"error": "Already running"}), 400
 
-    body    = request.json or {}
+    body = request.json or {}
     capital = float(body.get("capital", 10000))
     stocks  = body.get("stocks", [])
     if not stocks:
         return jsonify({"error": "No stocks provided"}), 400
 
+    per_stock = capital / len(stocks)
     lanes = []
     for s in stocks:
         weight    = s.get("weight", 100 / len(stocks))
@@ -442,26 +379,25 @@ def autotrader_start():
     }
 
     with _lock:
-        state["portfolio"]      = lanes
-        state["cfg"]            = cfg
-        state["equity"]         = []
-        state["peak_equity"]    = capital
-        state["max_dd"]         = 0.0
-        state["log"]            = []
-        state["alpaca_orders"]  = []
-        state["last_bar_time"]  = {}
-        state["send_to_alpaca"] = body.get("sendToAlpaca", False)
-        state["running"]        = True
-        state["status"]         = "starting"
+        state["portfolio"]     = lanes
+        state["cfg"]           = cfg
+        state["equity"]        = []
+        state["peak_equity"]   = capital
+        state["max_dd"]        = 0.0
+        state["log"]           = []
+        state["alpaca_orders"] = []
+        state["last_bar_time"] = {}
+        state["send_to_alpaca"]= body.get("sendToAlpaca", False)
+        state["running"]       = True
+        state["status"]        = "starting"
 
     _thread = threading.Thread(target=run_live, daemon=True)
     _thread.start()
     return jsonify({"ok": True, "tickers": [l.ticker for l in lanes]})
 
 
-@app.route('/autotrader/api/stop', methods=['POST'])
-@require_secret
-def autotrader_stop():
+@app.route("/api/stop", methods=["POST"])
+def stop():
     with _lock:
         state["running"] = False
         state["status"]  = "idle"
@@ -479,9 +415,9 @@ def autotrader_stop():
     return jsonify({"ok": True})
 
 
-@app.route('/autotrader/api/state')
-@require_secret
-def autotrader_state():
+@app.route("/api/state")
+def get_state():
+    # Pull live data from Alpaca — the source of truth
     alpaca_account   = bridge.status()
     alpaca_positions = {p["symbol"]: p for p in bridge.get_positions()}
 
@@ -505,6 +441,7 @@ def autotrader_state():
                 for t in lane.trades
             ]
 
+            # Real position from Alpaca
             ap = alpaca_positions.get(lane.ticker.upper())
             real_position = None
             if ap:
@@ -517,6 +454,7 @@ def autotrader_state():
                     "target": lane.position.target if lane.position else None,
                 }
 
+            # Real equity = starting capital + closed P&L + open unrealized
             closed_pnl  = sum(t.pnl for t in lane.trades)
             unreal_pnl  = ap["unrealized_pl"] if ap else 0.0
             real_equity = lane.capital + closed_pnl + unreal_pnl
@@ -562,14 +500,16 @@ def autotrader_state():
         })
 
 
-if __name__ == '__main__':
-    port = int(os.getenv("PORT", 5000))
-    print(f"\n  Portfolio  →  http://localhost:{port}")
-    print(f"  Secret     →  http://localhost:{port}/secret")
+if __name__ == "__main__":
+    port = int(os.getenv("traderPort", 5100))
+    print(f"\n  AutoTrader Paper Trading  →  http://localhost:{port}")
     alpaca = bridge.status()
     if alpaca.get("connected"):
-        print(f"  Alpaca     →  CONNECTED (${float(alpaca.get('portfolio_value', 0)):,.2f})")
+        print(f"  Alpaca paper account       →  CONNECTED")
+        print(f"  Buying power               →  ${float(alpaca['buying_power']):,.2f}")
+        print(f"  Portfolio value            →  ${float(alpaca['portfolio_value']):,.2f}")
     else:
-        print(f"  Alpaca     →  NOT CONNECTED: {alpaca.get('error')}")
+        print(f"  Alpaca                     →  NOT CONNECTED: {alpaca.get('error')}")
+        print(f"  → Make sure ALPACA_API_KEY and ALPACA_API_SECRET are set in .env")
     print()
     app.run(debug=False, port=port)
