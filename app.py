@@ -559,6 +559,7 @@ def autotrader_state():
             "max_dd":         state["max_dd"],
             "log":            state["log"][-50:],
             "alpaca_orders":  state["alpaca_orders"][-20:],
+            "send_to_alpaca": state["send_to_alpaca"],
         })
 
 

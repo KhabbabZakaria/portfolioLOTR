@@ -211,7 +211,7 @@ tr:hover td{background:var(--s2)}
     <div class="alpaca-toggle-row">
       <span class="toggle-label">Send signals to Alpaca<br/><strong id="alpacaToggleState">OFF</strong></span>
       <label class="toggle">
-        <input type="checkbox" id="sendAlpaca" onchange="onAlpacaToggle()"/>
+        <input type="checkbox" id="sendAlpaca" onchange="onAlpacaToggle()" checked/>
         <div class="toggle-track"></div>
         <div class="toggle-thumb"></div>
       </label>
@@ -736,6 +736,7 @@ function setStatus(txt, mode) {
 
 // ── Init — restore running state if trader is already active ─────────────────
 async function init() {
+  onAlpacaToggle(); // expand Alpaca section since it's ON by default
   checkAlpaca();
   setInterval(checkAlpaca, 30000);
 
@@ -775,8 +776,12 @@ async function init() {
   const wSum = portfolio.reduce((s,l) => s + l.weight, 0);
   if (wSum !== 100 && portfolio.length) portfolio[0].weight += (100 - wSum);
 
-  // Restore capital input
+  // Restore capital input and Alpaca toggle
   if (el('capital')) el('capital').value = totalCap;
+  if (d.send_to_alpaca) {
+    el('sendAlpaca').checked = true;
+    onAlpacaToggle();
+  }
 
   // Switch UI into running mode
   simRunning = true;
