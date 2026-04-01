@@ -12,6 +12,7 @@ No CSV files. No data_api. Just Alpaca.
 """
 
 import os
+import json
 import time
 import threading
 import logging
@@ -34,6 +35,35 @@ logger = logging.getLogger("autotrader")
 
 app = Flask(__name__)
 CORS(app)
+
+# ── Persistence: save/load trader config so restarts don't lose state ──────────
+_PERSIST_FILE = os.path.join(os.path.dirname(__file__), ".trader_state.json")
+
+def _save_config(body: dict):
+    """Persist the /api/start payload so we can auto-restore after a crash."""
+    try:
+        with open(_PERSIST_FILE, "w") as f:
+            json.dump(body, f)
+    except Exception as e:
+        logger.warning(f"Could not save trader state: {e}")
+
+def _clear_config():
+    """Remove persisted config (called on user-initiated stop)."""
+    try:
+        if os.path.exists(_PERSIST_FILE):
+            os.remove(_PERSIST_FILE)
+    except Exception as e:
+        logger.warning(f"Could not clear trader state: {e}")
+
+def _load_config() -> dict | None:
+    """Return saved config dict if it exists, else None."""
+    try:
+        if os.path.exists(_PERSIST_FILE):
+            with open(_PERSIST_FILE) as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Could not load trader state: {e}")
+    return None
 
 # ── Global state ──────────────────────────────────────────────────────────────
 state = {
@@ -116,24 +146,61 @@ def handle_bar(lane: Lane, bar: dict, cfg: dict, send_alpaca: bool):
     return result
 
 
+# ── Build lanes + cfg from a persisted/request body dict ──────────────────────
+def _build_lanes_and_cfg(body: dict):
+    capital = float(body.get("capital", 10000))
+    stocks  = body.get("stocks", [])
+    lanes = []
+    for s in stocks:
+        weight    = s.get("weight", 100 / len(stocks))
+        allocated = capital * weight / 100
+        lane = Lane(
+            ticker=s["ticker"].upper(),
+            strategy=s.get("strategy", "rsi"),
+            params=s.get("params", {}),
+            vwap_filter=s.get("vwapFilter", True),
+            capital=allocated,
+        )
+        lane.reset(allocated)
+        lanes.append(lane)
+    cfg = {
+        "posSize":    body.get("posSize",    20),
+        "stopLoss":   body.get("stopLoss",    2),
+        "takeProfit": body.get("takeProfit",  3),
+        "commission": body.get("commission",  0),
+        "slippage":   body.get("slippage",    0),
+        "maxTrades":  body.get("maxTrades",   4),
+    }
+    return lanes, cfg, capital
+
+
 # ── Warmup + reset + sync helper (called every trading day) ──────────────────
 def _warmup_and_reset(portfolio, cfg) -> bool:
     """
     Fetch warmup bars, reset daily state, sync existing Alpaca positions.
-    Returns True on success, False on failure.
+    Retries up to 3 times on failure. Returns True on success, False on failure.
     """
     set_status("warming")
     log_event("Fetching warmup bars from Alpaca (priming indicators)…")
     for lane in portfolio:
-        try:
-            warmup_bars = fetch_warmup_bars(lane.ticker, n=50)
-            log_event(f"  {lane.ticker}: {len(warmup_bars)} warmup bars loaded")
-            for bar in warmup_bars:
-                process_bar(lane, bar, cfg)
-        except Exception as e:
-            import traceback
-            logger.error(f"Warmup traceback:\n{traceback.format_exc()}")
-            log_event(f"Warmup failed for {lane.ticker}: {type(e).__name__}: {e}", "error")
+        success = False
+        for attempt in range(1, 4):
+            try:
+                warmup_bars = fetch_warmup_bars(lane.ticker, n=50)
+                log_event(f"  {lane.ticker}: {len(warmup_bars)} warmup bars loaded")
+                for bar in warmup_bars:
+                    process_bar(lane, bar, cfg)
+                success = True
+                break
+            except Exception as e:
+                import traceback
+                logger.error(f"Warmup traceback:\n{traceback.format_exc()}")
+                log_event(f"Warmup attempt {attempt}/3 failed for {lane.ticker}: {type(e).__name__}: {e}", "error")
+                if attempt < 3:
+                    log_event(f"  Retrying in 30s…")
+                    time.sleep(30)
+        if not success:
+            log_event(f"Warmup failed for {lane.ticker} after 3 attempts — trader stopped.", "error")
             set_status("error")
             return False
 
@@ -341,42 +408,10 @@ def alpaca_orders():
     return jsonify({"local_signals": local, "alpaca_orders": live})
 
 
-@app.route("/api/start", methods=["POST"])
-def start():
+def _start_from_body(body: dict) -> list:
+    """Shared logic for starting the trader from a config body. Returns lanes."""
     global _thread
-    with _lock:
-        if state["running"]:
-            return jsonify({"error": "Already running"}), 400
-
-    body = request.json or {}
-    capital = float(body.get("capital", 10000))
-    stocks  = body.get("stocks", [])
-    if not stocks:
-        return jsonify({"error": "No stocks provided"}), 400
-
-    per_stock = capital / len(stocks)
-    lanes = []
-    for s in stocks:
-        weight    = s.get("weight", 100 / len(stocks))
-        allocated = capital * weight / 100
-        lane = Lane(
-            ticker=s["ticker"].upper(),
-            strategy=s.get("strategy", "rsi"),
-            params=s.get("params", {}),
-            vwap_filter=s.get("vwapFilter", True),
-            capital=allocated,
-        )
-        lane.reset(allocated)
-        lanes.append(lane)
-
-    cfg = {
-        "posSize":    body.get("posSize",    20),
-        "stopLoss":   body.get("stopLoss",    2),
-        "takeProfit": body.get("takeProfit",  3),
-        "commission": body.get("commission",  0),
-        "slippage":   body.get("slippage",    0),
-        "maxTrades":  body.get("maxTrades",   4),
-    }
+    lanes, cfg, capital = _build_lanes_and_cfg(body)
 
     with _lock:
         state["portfolio"]     = lanes
@@ -393,11 +428,27 @@ def start():
 
     _thread = threading.Thread(target=run_live, daemon=True)
     _thread.start()
+    return lanes
+
+
+@app.route("/api/start", methods=["POST"])
+def start():
+    with _lock:
+        if state["running"]:
+            return jsonify({"error": "Already running"}), 400
+
+    body = request.json or {}
+    if not body.get("stocks"):
+        return jsonify({"error": "No stocks provided"}), 400
+
+    _save_config(body)
+    lanes = _start_from_body(body)
     return jsonify({"ok": True, "tickers": [l.ticker for l in lanes]})
 
 
 @app.route("/api/stop", methods=["POST"])
 def stop():
+    _clear_config()   # user explicitly stopped — don't auto-restore on next restart
     with _lock:
         state["running"] = False
         state["status"]  = "idle"
@@ -511,5 +562,14 @@ if __name__ == "__main__":
     else:
         print(f"  Alpaca                     →  NOT CONNECTED: {alpaca.get('error')}")
         print(f"  → Make sure ALPACA_API_KEY and ALPACA_API_SECRET are set in .env")
+
+    # ── Auto-restore: if server crashed while trader was running, restart it ──
+    saved = _load_config()
+    if saved:
+        tickers = [s["ticker"].upper() for s in saved.get("stocks", [])]
+        print(f"\n  [AUTO-RESTORE] Resuming trader for: {', '.join(tickers)}")
+        print(f"  (Server was restarted while trader was active — restoring automatically)")
+        _start_from_body(saved)
+
     print()
     app.run(debug=False, port=port)
