@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 from engine import Lane, process_bar
 from alpaca_bridge import bridge
 from live_feed import (
-    fetch_warmup_bars, fetch_latest_bar,
+    fetch_warmup_bars, fetch_new_bars,
     is_market_open, seconds_until_market_open,
 )
 
@@ -339,22 +339,40 @@ def run_live():
                 log_event("2 minutes to market open — running warmup for new day…")
                 break   # → back to outer loop (re-warmup)
 
-            # Fetch and process latest bar for each ticker
+            # Fetch and process all new bars since last seen, per ticker
             for lane in portfolio:
                 try:
-                    bar = fetch_latest_bar(lane.ticker)
-                    if bar is None:
+                    with _lock:
+                        since = state["last_bar_time"].get(lane.ticker)
+
+                    bars = fetch_new_bars(lane.ticker, since)
+                    if not bars:
                         continue
 
-                    with _lock:
-                        last = state["last_bar_time"].get(lane.ticker)
-                    if bar["t"] == last:
-                        continue
-                    with _lock:
-                        state["last_bar_time"][lane.ticker] = bar["t"]
+                    # Detect gap: if we missed more than 2 bars, feed old ones
+                    # to indicators only (no orders), trade only on fresh bars.
+                    from zoneinfo import ZoneInfo
+                    from datetime import datetime as dt
+                    ET = ZoneInfo("America/New_York")
+                    now_et = dt.now(tz=ET).replace(tzinfo=None)
 
-                    log_event(f"[BAR] {lane.ticker} {bar['t']}  C:${bar['c']}  V:{bar['v']:,}")
-                    handle_bar(lane, bar, cfg, send_alpaca)
+                    if len(bars) > 1:
+                        log_event(f"[GAP] {lane.ticker}: catching up {len(bars)} missed bars (indicators only)", "error")
+
+                    for bar in bars:
+                        with _lock:
+                            state["last_bar_time"][lane.ticker] = bar["t"]
+                        bar_dt  = dt.strptime(bar["t"], "%Y-%m-%d %H:%M")
+                        age_min = (now_et - bar_dt).total_seconds() / 60
+                        stale   = age_min > 2
+
+                        if stale:
+                            # Feed to indicators only — do not trade on stale prices
+                            from engine import process_bar as _pb
+                            _pb(lane, bar, cfg)
+                        else:
+                            log_event(f"[BAR] {lane.ticker} {bar['t']}  C:${bar['c']}  V:{bar['v']:,}")
+                            handle_bar(lane, bar, cfg, send_alpaca)
 
                 except Exception as e:
                     log_event(f"Error processing {lane.ticker}: {e}", "error")

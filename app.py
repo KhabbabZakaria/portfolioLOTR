@@ -35,20 +35,20 @@ if not os.path.exists(_env_path):
     _env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(_env_path)
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("autotrader")
+
 try:
     from engine import Lane, process_bar
     from alpaca_bridge import bridge
     from live_feed import (
-        fetch_warmup_bars, fetch_latest_bar,
+        fetch_warmup_bars, fetch_new_bars,
         is_market_open, seconds_until_market_open,
     )
     AUTOTRADER_AVAILABLE = True
 except ImportError as e:
     AUTOTRADER_AVAILABLE = False
     logger.warning(f"AutoTrader modules unavailable (run with venv): {e}")
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger("autotrader")
 
 app = Flask(__name__)
 app.secret_key = 'portfolioLOTR-secret-key-2024'
@@ -281,17 +281,35 @@ def run_live():
 
             for lane in portfolio:
                 try:
-                    bar = fetch_latest_bar(lane.ticker)
-                    if bar is None:
-                        continue
                     with _lock:
-                        last = state["last_bar_time"].get(lane.ticker)
-                    if bar["t"] == last:
+                        since = state["last_bar_time"].get(lane.ticker)
+
+                    bars = fetch_new_bars(lane.ticker, since)
+                    if not bars:
                         continue
-                    with _lock:
-                        state["last_bar_time"][lane.ticker] = bar["t"]
-                    log_event(f"[BAR] {lane.ticker} {bar['t']}  C:${bar['c']}  V:{bar['v']:,}")
-                    handle_bar(lane, bar, cfg, send_alpaca)
+
+                    from zoneinfo import ZoneInfo
+                    from datetime import datetime as dt
+                    ET = ZoneInfo("America/New_York")
+                    now_et = dt.now(tz=ET).replace(tzinfo=None)
+
+                    if len(bars) > 1:
+                        log_event(f"[GAP] {lane.ticker}: catching up {len(bars)} missed bars (indicators only)", "error")
+
+                    for bar in bars:
+                        with _lock:
+                            state["last_bar_time"][lane.ticker] = bar["t"]
+                        bar_dt  = dt.strptime(bar["t"], "%Y-%m-%d %H:%M")
+                        age_min = (now_et - bar_dt).total_seconds() / 60
+                        stale   = age_min > 2
+
+                        if stale:
+                            from engine import process_bar as _pb
+                            _pb(lane, bar, cfg)
+                        else:
+                            log_event(f"[BAR] {lane.ticker} {bar['t']}  C:${bar['c']}  V:{bar['v']:,}")
+                            handle_bar(lane, bar, cfg, send_alpaca)
+
                 except Exception as e:
                     log_event(f"Error processing {lane.ticker}: {e}", "error")
 

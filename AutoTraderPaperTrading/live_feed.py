@@ -91,16 +91,16 @@ def fetch_warmup_bars(symbol: str, n: int = WARMUP_BARS) -> list[dict]:
     return bars
 
 
-def fetch_latest_bar(symbol: str) -> dict | None:
+def fetch_new_bars(symbol: str, since: str | None) -> list[dict]:
     """
-    Fetch the single most recently completed 1-minute bar.
-    Looks back 10 minutes to handle IEX feed gaps on low-volume stocks.
-    Called every 60 seconds by the polling loop.
+    Fetch all completed 1-minute bars newer than `since` (a "YYYY-MM-DD HH:MM" string).
+    Returns list sorted oldest -> newest, skipping any bar whose timestamp <= since.
+    Looks back 30 minutes to catch up after gaps.
     """
     client, StockBarsRequest, TimeFrame = _make_client()
 
     end   = datetime.now(tz=timezone.utc) - timedelta(seconds=30)
-    start = end - timedelta(minutes=10)
+    start = end - timedelta(minutes=30)
 
     req = StockBarsRequest(
         symbol_or_symbols=symbol,
@@ -108,18 +108,18 @@ def fetch_latest_bar(symbol: str) -> dict | None:
         start=start,
         end=end,
         feed="iex",
-        limit=5,
+        limit=30,
     )
     try:
         bars_response = client.get_stock_bars(req)
         raw = bars_response.data.get(symbol, [])
-        if not raw:
-            return None
-        bar = _bar_to_dict(raw[-1], symbol)
-        return bar
+        bars = [_bar_to_dict(b, symbol) for b in raw]
+        if since:
+            bars = [b for b in bars if b["t"] > since]
+        return bars
     except Exception as e:
-        logger.error(f"fetch_latest_bar({symbol}): {e}")
-        return None
+        logger.error(f"fetch_new_bars({symbol}): {e}")
+        return []
 
 
 def _get_clock():

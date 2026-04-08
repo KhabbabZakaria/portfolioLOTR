@@ -1,2 +1,4 @@
 .DS_Store
 venv
+.claude
+AutoTraderPaperTrading/__pycache__
