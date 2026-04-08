@@ -7,7 +7,7 @@ Strategy:
   - Then poll Alpaca's /v2/stocks/{symbol}/bars endpoint every 60s
     for the latest completed 1-minute bar.
   - Uses IEX feed (free). If you have an Alpaca subscription, change
-    feed="iex" to feed="sip".
+    feed="iex" to feed="iex".
 """
 
 import os
@@ -63,12 +63,16 @@ def _bar_to_dict(bar, symbol: str) -> dict:
 def fetch_warmup_bars(symbol: str, n: int = WARMUP_BARS) -> list[dict]:
     """
     Fetch the last `n` completed 1-minute bars for warmup.
+    Looks back up to 5 calendar days to ensure we get enough bars
+    even when called before market open (no intraday data yet today).
     Returns list of bar dicts sorted oldest → newest.
     """
     client, StockBarsRequest, TimeFrame = _make_client()
 
+    # Always look back 5 calendar days to cross weekends and pre-market gaps.
+    # Alpaca will only return bars from actual trading sessions.
     end   = datetime.now(tz=timezone.utc) - timedelta(minutes=1)
-    start = end - timedelta(minutes=n * 3)   # extra buffer for gaps/weekends
+    start = end - timedelta(days=5)
 
     from alpaca.data.requests import StockBarsRequest
     req  = StockBarsRequest(
@@ -90,12 +94,13 @@ def fetch_warmup_bars(symbol: str, n: int = WARMUP_BARS) -> list[dict]:
 def fetch_latest_bar(symbol: str) -> dict | None:
     """
     Fetch the single most recently completed 1-minute bar.
+    Looks back 10 minutes to handle IEX feed gaps on low-volume stocks.
     Called every 60 seconds by the polling loop.
     """
     client, StockBarsRequest, TimeFrame = _make_client()
 
     end   = datetime.now(tz=timezone.utc) - timedelta(seconds=30)
-    start = end - timedelta(minutes=3)
+    start = end - timedelta(minutes=10)
 
     req = StockBarsRequest(
         symbol_or_symbols=symbol,
@@ -103,7 +108,7 @@ def fetch_latest_bar(symbol: str) -> dict | None:
         start=start,
         end=end,
         feed="iex",
-        limit=2,
+        limit=5,
     )
     try:
         bars_response = client.get_stock_bars(req)
@@ -117,10 +122,28 @@ def fetch_latest_bar(symbol: str) -> dict | None:
         return None
 
 
+def _get_clock():
+    """Fetch Alpaca's market clock. Returns clock object or None on error."""
+    try:
+        from alpaca.trading.client import TradingClient
+        api_key    = os.getenv("ALPACA_API_KEY", "")
+        api_secret = os.getenv("ALPACA_API_SECRET", "")
+        client = TradingClient(api_key, api_secret, paper=True)
+        return client.get_clock()
+    except Exception as e:
+        logger.warning(f"Could not fetch Alpaca clock: {e}")
+        return None
+
+
 def is_market_open() -> bool:
-    """Check if US equity market is currently open (simple time check)."""
+    """Check if NYSE is currently open using Alpaca's clock API.
+    Correctly handles holidays and early-close days.
+    Falls back to simple time check if API is unreachable."""
+    clock = _get_clock()
+    if clock is not None:
+        return bool(clock.is_open)
+    # Fallback: simple ET time check
     now_et = datetime.now(tz=ET)
-    # Mon–Fri only
     if now_et.weekday() >= 5:
         return False
     market_open  = now_et.replace(hour=9,  minute=30, second=0, microsecond=0)
@@ -129,9 +152,17 @@ def is_market_open() -> bool:
 
 
 def seconds_until_market_open() -> float:
-    """Return seconds until next market open (for sleeping)."""
+    """Return seconds until next NYSE open using Alpaca's clock API.
+    Falls back to simple calculation if API is unreachable."""
+    clock = _get_clock()
+    if clock is not None:
+        next_open = clock.next_open
+        now_utc   = datetime.now(tz=timezone.utc)
+        if hasattr(next_open, 'tzinfo') and next_open.tzinfo is None:
+            next_open = next_open.replace(tzinfo=timezone.utc)
+        return max(0.0, (next_open - now_utc).total_seconds())
+    # Fallback
     now_et = datetime.now(tz=ET)
-    # Find next weekday at 9:30
     candidate = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
     if candidate <= now_et or now_et.weekday() >= 5:
         candidate += timedelta(days=1)

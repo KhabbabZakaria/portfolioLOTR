@@ -139,7 +139,7 @@ tr:hover td{background:var(--s2)}
 /* Signal log */
 .log-wrap{max-height:160px;overflow-y:auto;padding:0}
 .log-entry{font-family:var(--mono);font-size:9px;padding:3px 12px;border-bottom:1px solid var(--border);line-height:1.6}
-.log-entry .log-t{color:var(--muted);margin-right:8px}
+.log-entry .log-t{color:var(--muted);margin-right:8px}.log-date{opacity:.55;font-size:8px;margin-right:3px}
 .log-entry.buy .log-t,.log-entry.buy{color:var(--green)}
 .log-entry.sell .log-t,.log-entry.sell{color:var(--red)}
 .log-entry.error{color:var(--red)}
@@ -630,7 +630,13 @@ function updateLog(entries) {
   entries.slice(lastLogCount).forEach(e => {
     const div = document.createElement('div');
     div.className = `log-entry ${e.level||'info'}`;
-    div.innerHTML = `<span class="log-t">${e.t}</span>${e.msg}`;
+    // e.t is "YYYY-MM-DD HH:MM:SS" — parse and display date + time
+    const parts = e.t.split(' ');
+    const datePart = parts[0] || '';
+    const timePart = parts[1] || e.t;
+    const [y, mo, d] = datePart.split('-');
+    const shortDate = (mo && d) ? `${mo}/${d}` : datePart;
+    div.innerHTML = `<span class="log-t"><span class="log-date">${shortDate}</span> ${timePart}</span>${e.msg}`;
     wrap.insertBefore(div, wrap.firstChild);
   });
   lastLogCount = entries.length;

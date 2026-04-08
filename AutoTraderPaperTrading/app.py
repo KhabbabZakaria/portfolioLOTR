@@ -86,7 +86,7 @@ _thread = None
 
 # ── Logging helper ────────────────────────────────────────────────────────────
 def log_event(msg: str, level: str = "info"):
-    entry = {"t": datetime.now().strftime("%H:%M:%S"), "msg": msg, "level": level}
+    entry = {"t": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "msg": msg, "level": level}
     with _lock:
         state["log"].append(entry)
         if len(state["log"]) > 500:
